@@ -11,6 +11,7 @@ import { EduTreasureQuest } from "./edu-treasure-quest"
 import RabbitMathGame from "./RabbitMathGame"
 import { SnailMazeAdventure } from "./snail-maze-adventure"
 import BoardGameParty from "./board-game-party"
+import MathBaseGame from "./math-base-minigame"
 
 export function GameHub() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
@@ -26,8 +27,7 @@ export function GameHub() {
       featured: true,
       props: {
         gameId: "rabbit-math-1",
-        onGameComplete: (score: number) =>
-          console.log("Rabbit Math score:", score),
+        onGameComplete: (score: number) => console.log("Rabbit Math score:", score),
       },
     },
 
@@ -39,6 +39,14 @@ export function GameHub() {
         "Cuộc phiêu lưu board game kiểu Mario Party! Lăn xúc xắc, di chuyển quanh bản đồ, chơi mini-game, và thu thập sao. Kết hợp học toán, tiếng Anh và tư duy logic!",
       icon: () => <span>🎲</span>,
       component: BoardGameParty,
+    },
+    {
+      id: "math-base",
+      name: "🧮 Căn Cứ Toán Học",
+      description:
+        "Xây dựng căn cứ toán học bằng cách giải các bài toán và biểu thức. Chọn mức độ khó, giải nhanh để kiếm điểm cao!",
+      icon: () => <span>🧮</span>,
+      component: MathBaseGame,
     },
     {
       id: "snail-maze",
@@ -85,12 +93,9 @@ export function GameHub() {
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <h1 className="text-4xl font-bold flex items-center justify-center gap-2 text-gray-900">
-          <Gamepad2 className="w-8 h-8 text-yellow-600" />
-          🎮 Game Hub
+          <Gamepad2 className="w-8 h-8 text-yellow-600" />🎮 Game Hub
         </h1>
-        <p className="text-lg text-gray-600">
-          Chọn một trò chơi để bắt đầu cuộc phiêu lưu! 🚀
-        </p>
+        <p className="text-lg text-gray-600">Chọn một trò chơi để bắt đầu cuộc phiêu lưu! 🚀</p>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -121,9 +126,7 @@ export function GameHub() {
             </CardHeader>
 
             <CardContent>
-              <p className="text-sm text-gray-700 mb-4 font-medium">
-                {game.description}
-              </p>
+              <p className="text-sm text-gray-700 mb-4 font-medium">{game.description}</p>
               <Button
                 className={`w-full font-bold py-2 ${
                   game.featured

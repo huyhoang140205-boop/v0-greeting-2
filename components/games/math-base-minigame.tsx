@@ -104,3 +104,5 @@ export function MathBaseMinigame({ onComplete, difficulty = "VỪA" }: MathBaseM
     </div>
   )
 }
+
+export default MathBaseMinigame
