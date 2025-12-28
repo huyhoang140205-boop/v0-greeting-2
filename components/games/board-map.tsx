@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import type { Tile } from "./logic/map-generator"
 
 interface BoardMapProps {
@@ -9,46 +10,72 @@ interface BoardMapProps {
 }
 
 export function BoardMap({ tiles, playerPosition, onTileClick }: BoardMapProps) {
+  const tileElements = useMemo(() => {
+    return tiles.map((tile) => {
+      const isActive = tile.id === playerPosition
+      const tileEmojis: Record<string, string> = {
+        normal: "🟢",
+        star: "⭐",
+        treasure: "🎁",
+        achievement: "🏆",
+        boss: "👑",
+      }
+
+      return (
+        <div
+          key={tile.id}
+          className={`absolute flex items-center justify-center transition-all duration-300 ${
+            isActive ? "z-20 scale-125" : "z-10 scale-100"
+          } hover:scale-110 cursor-pointer`}
+          style={{
+            left: `${tile.position[0]}%`,
+            top: `${tile.position[1]}%`,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          {isActive && (
+            <div className="absolute w-16 h-16 bg-yellow-300 rounded-full blur-xl opacity-50 animate-pulse" />
+          )}
+          <div
+            className={`relative w-12 h-12 flex items-center justify-center rounded-full border-4 border-white shadow-lg transition-all ${
+              isActive ? "bg-yellow-200 scale-125" : "bg-white"
+            }`}
+          >
+            <span className={`text-3xl ${isActive ? "drop-shadow-lg" : ""}`}>{tileEmojis[tile.type]}</span>
+          </div>
+        </div>
+      )
+    })
+  }, [tiles, playerPosition])
+
   return (
-    <div className="w-full h-96 bg-gradient-to-br from-green-100 via-blue-50 to-green-50 rounded-lg p-6 border-4 border-green-300 shadow-lg relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute top-4 right-4 text-6xl opacity-30">🌳</div>
-      <div className="absolute bottom-4 left-4 text-6xl opacity-30">🏠</div>
+    <div className="w-full bg-gradient-to-br from-emerald-200 via-cyan-100 to-sky-200 rounded-xl p-8 border-4 border-emerald-400 shadow-xl relative overflow-hidden aspect-video">
+      <div className="absolute top-3 right-6 text-4xl opacity-40">🌳</div>
+      <div className="absolute bottom-3 left-6 text-4xl opacity-40">🏰</div>
+      <div className="absolute top-1/2 right-4 text-5xl opacity-20">☁️</div>
 
-      {/* Tiles */}
-      <div className="relative w-full h-full">
-        {tiles.map((tile) => {
-          const isActive = tile.id === playerPosition
-          const tileEmojis: Record<string, string> = {
-            normal: "🟩",
-            star: "⭐",
-            treasure: "🎁",
-            achievement: "🏆",
-            boss: "👑",
-          }
-
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.3 }}>
+        {tiles.map((tile, index) => {
+          if (index >= tiles.length - 1) return null
+          const nextTile = tiles[index + 1]
           return (
-            <button
-              key={tile.id}
-              onClick={() => onTileClick?.(tile.id)}
-              className={`absolute flex items-center justify-center transition-all duration-200 ${
-                isActive ? "scale-125 z-20" : "scale-100"
-              } cursor-pointer hover:scale-110`}
-              style={{
-                left: `${tile.position[0]}px`,
-                top: `${tile.position[1]}px`,
-                width: "50px",
-                height: "50px",
-              }}
-              title={`Tile ${tile.id} - ${tile.type}`}
-            >
-              <span className={`text-3xl drop-shadow-lg ${isActive ? "animate-bounce" : ""}`}>
-                {tileEmojis[tile.type]}
-              </span>
-            </button>
+            <line
+              key={`path-${index}`}
+              x1={`${tile.position[0]}%`}
+              y1={`${tile.position[1]}%`}
+              x2={`${nextTile.position[0]}%`}
+              y2={`${nextTile.position[1]}%`}
+              stroke="#4B5563"
+              strokeWidth="8"
+              strokeDasharray="10,5"
+              strokeLinecap="round"
+            />
           )
         })}
-      </div>
+      </svg>
+
+      {/* Tiles container */}
+      <div className="relative w-full h-full">{tileElements}</div>
     </div>
   )
 }

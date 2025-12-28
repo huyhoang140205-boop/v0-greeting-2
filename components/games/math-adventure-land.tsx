@@ -11,6 +11,7 @@ import { Dice } from "./dice"
 import { QuestionModal } from "./question-modal"
 import { RewardPopup } from "./reward-popup"
 import { AchievementMap } from "./achievement-map"
+import React from "react"
 
 interface Achievement {
   id: string
@@ -47,6 +48,10 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
     condition: "finish map",
   },
 ]
+
+const MemoizedBoardMap = React.memo(BoardMap)
+const MemoizedPlayerCharacter = React.memo(PlayerCharacter)
+const MemoizedDice = React.memo(Dice)
 
 export function MathAdventureLand() {
   const [gameState, setGameState] = useState<"character-select" | "playing" | "finished">("character-select")
@@ -98,6 +103,7 @@ export function MathAdventureLand() {
                 src={char.avatar || "/placeholder.svg"}
                 alt={char.name}
                 className="w-full h-32 object-cover rounded-lg border-2 border-purple-300"
+                loading="lazy"
               />
               <p className="text-lg font-bold text-purple-900">{char.name}</p>
             </button>
@@ -125,19 +131,18 @@ export function MathAdventureLand() {
       setPlayerPosition(newPosition)
       setDiceRolled(true)
 
-      // Trigger question on landing
       setTimeout(() => {
         const question = generateSimpleQuestion()
         setCurrentQuestion(question)
         setShowQuestion(true)
         setDiceRolled(false)
-      }, 800)
+      }, 1200)
 
       // Check for finish
       if (newPosition >= tiles.length - 1) {
         setTimeout(() => {
           setGameState("finished")
-        }, 2000)
+        }, 2500)
       }
     }
 
@@ -158,7 +163,6 @@ export function MathAdventureLand() {
           setRewardData({ amount: 10, type: "points" })
         }
 
-        // Check achievements
         if (correctAnswers + 1 === 5) {
           setAchievements((a) => a.map((ach) => (ach.id === "smart" ? { ...ach, unlocked: true } : ach)))
         }
@@ -193,7 +197,7 @@ export function MathAdventureLand() {
         <div className="grid md:grid-cols-3 gap-6">
           {/* Left: Character & Status */}
           <div className="space-y-4">
-            <PlayerCharacter
+            <MemoizedPlayerCharacter
               avatar={selectedCharData.avatar}
               name={selectedCharData.name}
               score={score}
@@ -209,8 +213,8 @@ export function MathAdventureLand() {
 
           {/* Center: Board & Dice */}
           <div className="space-y-4">
-            <BoardMap tiles={tiles} playerPosition={playerPosition} />
-            <Dice onRoll={handleDiceRoll} disabled={diceRolled || showQuestion || isFinished} />
+            <MemoizedBoardMap tiles={tiles} playerPosition={playerPosition} />
+            <MemoizedDice onRoll={handleDiceRoll} disabled={diceRolled || showQuestion || isFinished} />
           </div>
 
           {/* Right: Info */}
