@@ -13,7 +13,7 @@ export function PlayerCharacter({ avatar, name, score, position }: PlayerCharact
       <img
         src={avatar || "/placeholder.svg"}
         alt={name}
-        className="w-16 h-16 rounded-full border-3 border-white shadow-lg object-cover animate-bounce"
+        className="w-16 h-16 rounded-full border-3 border-white shadow-lg object-cover"
       />
       <div className="flex-1">
         <h3 className="text-xl font-bold text-blue-900">{name}</h3>

@@ -10,7 +10,6 @@ import { PlayerCharacter } from "./player-character"
 import { Dice } from "./dice"
 import { QuestionModal } from "./question-modal"
 import { RewardPopup } from "./reward-popup"
-import { AchievementMap } from "./achievement-map"
 import React from "react"
 
 interface Achievement {
@@ -174,9 +173,9 @@ export function MathAdventureLand() {
     }
 
     return (
-      <div className="space-y-6 p-6 bg-gradient-to-br from-green-100 via-cyan-100 to-blue-100 rounded-xl min-h-screen">
+      <div className="space-y-4 p-4 bg-gradient-to-br from-green-100 via-cyan-100 to-blue-100 rounded-xl min-h-screen">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-green-900">🎮 Vùng Đất Phiêu Lưu Toán Học</h1>
+          <h1 className="text-2xl font-bold text-green-900">🎮 Vùng Đất Phiêu Lưu Toán Học</h1>
           <Button
             onClick={() => {
               setGameState("character-select")
@@ -188,69 +187,56 @@ export function MathAdventureLand() {
               setTiles([])
             }}
             variant="outline"
-            className="text-lg"
+            className="text-base"
           >
             ← Quay Lại
           </Button>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Left: Character & Status */}
-          <div className="space-y-4">
-            <MemoizedPlayerCharacter
-              avatar={selectedCharData.avatar}
-              name={selectedCharData.name}
-              score={score}
-              position={playerPosition}
-            />
-            <div className="bg-white rounded-lg p-4 border-3 border-blue-300 space-y-2">
-              <p className="text-lg font-bold text-blue-900">✅ Đúng: {correctAnswers}</p>
-              <p className="text-lg font-bold text-red-600">❌ Sai: {wrongAnswers}</p>
-              <p className="text-lg font-bold text-yellow-600">⭐ Sao: {starsCollected}</p>
+        <div className="grid grid-cols-1 gap-4">
+          {/* Left: Status Bar */}
+          <div className="grid grid-cols-5 gap-2 bg-white rounded-lg p-4 border-3 border-blue-300">
+            <div className="bg-gradient-to-b from-green-100 to-green-200 rounded-lg p-3 border-2 border-green-400">
+              <p className="text-xs text-green-700 font-bold">✅ Đúng</p>
+              <p className="text-2xl font-bold text-green-900">{correctAnswers}</p>
             </div>
-            <AchievementMap achievements={achievements} />
-          </div>
-
-          {/* Center: Board & Dice */}
-          <div className="space-y-4">
-            <MemoizedBoardMap tiles={tiles} playerPosition={playerPosition} />
-            <MemoizedDice onRoll={handleDiceRoll} disabled={diceRolled || showQuestion || isFinished} />
-          </div>
-
-          {/* Right: Info */}
-          <div className="bg-gradient-to-b from-yellow-100 to-orange-100 rounded-lg p-4 border-3 border-yellow-400 space-y-4">
-            <div className="text-center">
-              <p className="text-sm text-gray-600">Tiến độ</p>
-              <div className="text-3xl font-bold text-yellow-900">
+            <div className="bg-gradient-to-b from-red-100 to-red-200 rounded-lg p-3 border-2 border-red-400">
+              <p className="text-xs text-red-700 font-bold">❌ Sai</p>
+              <p className="text-2xl font-bold text-red-900">{wrongAnswers}</p>
+            </div>
+            <div className="bg-gradient-to-b from-yellow-100 to-yellow-200 rounded-lg p-3 border-2 border-yellow-400">
+              <p className="text-xs text-yellow-700 font-bold">⭐ Sao</p>
+              <p className="text-2xl font-bold text-yellow-900">{starsCollected}</p>
+            </div>
+            <div className="bg-gradient-to-b from-blue-100 to-blue-200 rounded-lg p-3 border-2 border-blue-400">
+              <p className="text-xs text-blue-700 font-bold">🎯 Điểm</p>
+              <p className="text-2xl font-bold text-blue-900">{score}</p>
+            </div>
+            <div className="bg-gradient-to-b from-purple-100 to-purple-200 rounded-lg p-3 border-2 border-purple-400">
+              <p className="text-xs text-purple-700 font-bold">📍 Ô</p>
+              <p className="text-2xl font-bold text-purple-900">
                 {playerPosition}/{tiles.length - 1}
-              </div>
-              <div className="w-full bg-gray-300 rounded-full h-4 mt-2 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-green-400 to-blue-400 h-full transition-all"
-                  style={{
-                    width: `${(playerPosition / (tiles.length - 1)) * 100}%`,
-                  }}
-                />
+              </p>
+            </div>
+          </div>
+
+          {/* Main Board */}
+          <MemoizedBoardMap tiles={tiles} playerPosition={playerPosition} />
+
+          {/* Bottom Controls */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg p-4 border-3 border-blue-300 flex items-center gap-3">
+              <img
+                src={selectedCharData.avatar || "/placeholder.svg"}
+                alt={selectedCharData.name}
+                className="w-14 h-14 rounded-full border-2 border-white shadow-md object-cover"
+              />
+              <div>
+                <p className="font-bold text-blue-900">{selectedCharData.name}</p>
+                <p className="text-sm text-gray-600">Sẵn sàng tiếp theo?</p>
               </div>
             </div>
-
-            {currentTile && (
-              <div className="bg-white rounded-lg p-3 border-2 border-blue-300">
-                <p className="text-sm text-gray-600">Ô Hiện Tại</p>
-                <p className="text-3xl">
-                  {currentTile.type === "normal"
-                    ? "🟩"
-                    : currentTile.type === "star"
-                      ? "⭐"
-                      : currentTile.type === "treasure"
-                        ? "🎁"
-                        : currentTile.type === "achievement"
-                          ? "🏆"
-                          : "👑"}
-                </p>
-                <p className="text-sm font-bold text-gray-700 capitalize">{currentTile.type}</p>
-              </div>
-            )}
+            <MemoizedDice onRoll={handleDiceRoll} disabled={diceRolled || showQuestion || isFinished} />
           </div>
         </div>
 
