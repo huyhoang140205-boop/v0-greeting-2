@@ -50,14 +50,6 @@ export function GameHub() {
       component: BoardGameParty,
     },
     {
-      id: "math-base",
-      name: "🧮 Căn Cứ Toán Học",
-      description:
-        "Xây dựng căn cứ toán học bằng cách giải các bài toán và biểu thức. Chọn mức độ khó, giải nhanh để kiếm điểm cao!",
-      icon: () => <span>🧮</span>,
-      component: MathBaseGame,
-    },
-    {
       id: "snail-maze",
       name: "🐌 Ốc Sên Phiêu Lưu",
       description:
