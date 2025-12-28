@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { MathBaseMinigame } from "./math-base-minigame"
 
 // Game Types
 type TileType = "normal" | "minigame" | "event" | "star" | "trap"
@@ -471,7 +472,9 @@ export default function BoardGameParty() {
         setPlayers(newPlayers1)
         break
       case "minigame":
-        setSelectedMinigame("math")
+        const minigames = ["math", "memory", "math-base"]
+        const randomMinigame = minigames[Math.floor(Math.random() * minigames.length)]
+        setSelectedMinigame(randomMinigame)
         setGameState("minigame")
         return
       case "trap":
@@ -516,6 +519,7 @@ export default function BoardGameParty() {
       <div className="w-full bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg p-8">
         {selectedMinigame === "math" && <MathGame onComplete={handleMinigameComplete} />}
         {selectedMinigame === "memory" && <MemoryGame onComplete={handleMinigameComplete} />}
+        {selectedMinigame === "math-base" && <MathBaseMinigame onComplete={handleMinigameComplete} difficulty="VỪA" />}
       </div>
     )
   }
