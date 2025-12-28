@@ -11,14 +11,24 @@ import { EduTreasureQuest } from "./edu-treasure-quest"
 import RabbitMathGame from "./RabbitMathGame"
 import { SnailMazeAdventure } from "./snail-maze-adventure"
 import BoardGameParty from "./board-game-party"
-import MathBaseGame from "./math-base-minigame"
 import CanCuToanHoc from "./can-cu-toan-hoc"
+import { MathAdventureLand } from "./math-adventure-land"
 
 export function GameHub() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
 
   const games = [
     // ⭐ GAME NỔI BẬT
+    {
+      id: "math-adventure-land",
+      name: "🌍 Math Adventure Land",
+      description:
+        "Phiêu lưu tìm kho báu cùng các nhân vật yêu thích! Lăn xúc xắc, trả lời câu hỏi toán, thu thập sao và mở rương kho báu. Chơi được 40 ô, học toán cơ bản qua trò chơi vui nhộn.",
+      icon: () => <span>🌍</span>,
+      component: MathAdventureLand,
+      featured: true,
+      props: {},
+    },
     {
       id: "rabbit-math",
       name: "🐰 Rabbit Math",
