@@ -12,6 +12,7 @@ import RabbitMathGame from "./RabbitMathGame"
 import { SnailMazeAdventure } from "./snail-maze-adventure"
 import BoardGameParty from "./board-game-party"
 import MathBaseGame from "./math-base-minigame"
+import CanCuToanHoc from "./can-cu-toan-hoc"
 
 export function GameHub() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
@@ -33,10 +34,18 @@ export function GameHub() {
 
     // Các game thường
     {
+      id: "can-cu-toan-hoc",
+      name: "🏗️ Căn Cứ Toán Học",
+      description:
+        "Xây dựng căn cứ toán học bằng cách giải các bài toán và biểu thức. Chọn mức độ khó, giải nhanh để kiếm điểm cao! Mua trang trí tuyệt đẹp với điểm kiếm được.",
+      icon: () => <span>🏗️</span>,
+      component: CanCuToanHoc,
+    },
+    {
       id: "board-game-party",
       name: "🎲 Board Game Party",
       description:
-        "Cuộc phiêu lưu board game kiểu Mario Party! Lăn xúc xắc, di chuyển quanh bản đồ, chơi mini-game, và thu thập sao. Kết hợp học toán, tiếng Anh và tư duy logic!",
+        "Cuộc phiêu lưu board game kiểu Mario Party! Lăn xúc xắc, di chuyển quanh bản đồ, chơi mini-game, và thu thập sao.",
       icon: () => <span>🎲</span>,
       component: BoardGameParty,
     },
