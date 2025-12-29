@@ -13,6 +13,7 @@ import { SnailMazeAdventure } from "./snail-maze-adventure"
 import BoardGameParty from "./board-game-party"
 import CanCuToanHoc from "./can-cu-toan-hoc"
 import TimesTableDuck from "./times-table-duck"
+import MathDuckPlatformer from "./math-duck-platformer"
 
 export function GameHub() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
@@ -20,13 +21,25 @@ export function GameHub() {
   const games = [
     // ⭐ GAME NỔI BẬT
     {
+      id: "math-duck-platformer",
+      name: "🦆 Math Duck Platformer",
+      description:
+        "Giúp vịt nhảy qua các nền tảng! Chạm các số theo đúng thứ tự để giải bài toán. Luyện cả kỹ năng nhảy lẫn toán học!",
+      icon: () => <span>🦆</span>,
+      component: MathDuckPlatformer,
+      featured: true,
+      props: {
+        gameId: "math-duck-platformer-1",
+        onGameComplete: (score: number) => console.log("Math Duck Platformer score:", score),
+      },
+    },
+    {
       id: "times-table-duck",
-      name: "🦆 Times Table Duck",
+      name: "🦆 Times Table Duck (Grid)",
       description:
         "Điều khiển con vịt để chạm các ô phép nhân theo đúng thứ tự! Luyện bảng cửu chương nhanh chóng với timer 30 giây.",
       icon: () => <span>🦆</span>,
       component: TimesTableDuck,
-      featured: true,
       props: {
         gameId: "times-table-duck-1",
         onGameComplete: (score: number) => console.log("Times Table Duck score:", score),
