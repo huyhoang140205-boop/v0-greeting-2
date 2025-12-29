@@ -12,13 +12,26 @@ import RabbitMathGame from "./RabbitMathGame"
 import { SnailMazeAdventure } from "./snail-maze-adventure"
 import BoardGameParty from "./board-game-party"
 import CanCuToanHoc from "./can-cu-toan-hoc"
-import { MathAdventureLand } from "./math-adventure-land"
+import TimesTableDuck from "./times-table-duck"
 
 export function GameHub() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
 
   const games = [
     // ⭐ GAME NỔI BẬT
+    {
+      id: "times-table-duck",
+      name: "🦆 Times Table Duck",
+      description:
+        "Điều khiển con vịt để chạm các ô phép nhân theo đúng thứ tự! Luyện bảng cửu chương nhanh chóng với timer 30 giây.",
+      icon: () => <span>🦆</span>,
+      component: TimesTableDuck,
+      featured: true,
+      props: {
+        gameId: "times-table-duck-1",
+        onGameComplete: (score: number) => console.log("Times Table Duck score:", score),
+      },
+    },
     {
       id: "rabbit-math",
       name: "🐰 Rabbit Math",
