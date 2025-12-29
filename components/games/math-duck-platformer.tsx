@@ -4,15 +4,8 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
-type GameState = "MENU" | "CHARACTER_SELECT" | "LEVEL_SELECT" | "PLAYING" | "WIN" | "SHOP" | "LOSE" | "SHOP_INGAME"
+type GameState = "MENU" | "CHARACTER_SELECT" | "LEVEL_SELECT" | "PLAYING" | "WIN" | "SHOP" | "LOSE"
 type Character = "duck" | "rabbit" | "bird" | "fish"
-
-interface Platform {
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 interface MathProblem {
   a: number
@@ -21,23 +14,28 @@ interface MathProblem {
   options: number[]
 }
 
-interface GameData {
-  duck: {
-    x: number
-    y: number
-    width: number
-    height: number
-    vx: number
-    vy: number
-    isJumping: boolean
-  }
-  platforms: Platform[]
-  goalDoor: { x: number; y: number; width: number; height: number }
-  hasKey: boolean
-  keyPosition: { x: number; y: number } | null
+interface MapObject {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+interface AnswerTile extends MapObject {
+  id: string
+  value: number
+  correct: boolean
+  picked: boolean
+}
+
+interface GameMap {
+  duck: MapObject & { vx: number; vy: number; isJumping: boolean }
+  platforms: MapObject[]
+  questionSource: MapObject
+  answerTiles: AnswerTile[]
+  key: MapObject & { visible: boolean }
+  door: MapObject & { locked: boolean }
   math: MathProblem
-  selectedAnswer: number | null
-  showAnswers: boolean
 }
 
 export default function MathDuckPlatformer() {
@@ -45,37 +43,20 @@ export default function MathDuckPlatformer() {
   const [gameState, setGameState] = useState<GameState>("MENU")
   const [score, setScore] = useState(0)
   const [totalScore, setTotalScore] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(90)
+  const [timeLeft, setTimeLeft] = useState(120)
   const [currentLevel, setCurrentLevel] = useState(1)
   const [selectedCharacter, setSelectedCharacter] = useState<Character>("duck")
   const [ownedCharacters, setOwnedCharacters] = useState<Character[]>(["duck"])
   const [completedLevels, setCompletedLevels] = useState<number[]>([])
+  const gameMapRef = useRef<GameMap | null>(null)
+  const keysPressed = useRef<Record<string, boolean>>({})
 
   const characterShop: Record<Character, { name: string; price: number; emoji: string }> = {
     duck: { name: "Vịt", price: 0, emoji: "🦆" },
-    rabbit: { name: "Thỏ", price: 500, emoji: "🐰" },
-    bird: { name: "Chim", price: 500, emoji: "🐦" },
-    fish: { name: "Cá", price: 500, emoji: "🐠" },
+    rabbit: { name: "Thỏ", price: 300, emoji: "🐰" },
+    bird: { name: "Chim", price: 300, emoji: "🐦" },
+    fish: { name: "Cá", price: 300, emoji: "🐠" },
   }
-
-  const gameDataRef = useRef<GameData>({
-    duck: {
-      x: 80,
-      y: 400,
-      width: 40,
-      height: 40,
-      vx: 0,
-      vy: 0,
-      isJumping: false,
-    },
-    platforms: [],
-    goalDoor: { x: 0, y: 0, width: 60, height: 80 },
-    hasKey: false,
-    keyPosition: null,
-    math: { a: 0, b: 0, correctAnswer: 0, options: [] },
-    selectedAnswer: null,
-    showAnswers: true,
-  })
 
   const generateMathProblem = (level: number): MathProblem => {
     const maxNum = Math.min(3 + Math.floor(level / 2), 12)
@@ -84,7 +65,7 @@ export default function MathDuckPlatformer() {
     const correctAnswer = a * b
 
     const options = [correctAnswer]
-    while (options.length < 3) {
+    while (options.length < 4) {
       const wrong = Math.floor(Math.random() * correctAnswer * 1.5) + 1
       if (!options.includes(wrong) && wrong !== correctAnswer) {
         options.push(wrong)
@@ -99,61 +80,161 @@ export default function MathDuckPlatformer() {
     }
   }
 
-  const initGame = () => {
-    const data = gameDataRef.current
-    data.math = generateMathProblem(currentLevel)
-    data.selectedAnswer = null
-    data.showAnswers = true
-    data.hasKey = false
-    data.keyPosition = null
+  const initGameMap = (level: number) => {
+    const math = generateMathProblem(level)
 
-    const platformCount = 3 + Math.floor(currentLevel / 3)
-    data.platforms = [{ x: 0, y: 450, width: 150, height: 30 }]
+    const platforms: MapObject[] = [
+      { x: 50, y: 480, width: 120, height: 20 },
+      { x: 200, y: 420, width: 120, height: 20 },
+      { x: 350, y: 360, width: 120, height: 20 },
+      { x: 500, y: 300, width: 120, height: 20 },
+      { x: 650, y: 360, width: 120, height: 20 },
+      { x: 750, y: 480, width: 120, height: 20 },
+    ]
 
-    for (let i = 1; i < platformCount; i++) {
-      data.platforms.push({
-        x: 100 + i * 160,
-        y: 400 - (i % 3) * 60,
-        width: 140,
-        height: 30,
-      })
+    const gameMap: GameMap = {
+      duck: {
+        x: 60,
+        y: 440,
+        width: 40,
+        height: 40,
+        vx: 0,
+        vy: 0,
+        isJumping: false,
+      },
+      platforms,
+      questionSource: { x: 30, y: 80, width: 300, height: 80 },
+      answerTiles: [
+        {
+          id: "A",
+          x: 200,
+          y: 360,
+          width: 50,
+          height: 50,
+          value: math.options[0],
+          correct: math.options[0] === math.correctAnswer,
+          picked: false,
+        },
+        {
+          id: "B",
+          x: 350,
+          y: 300,
+          width: 50,
+          height: 50,
+          value: math.options[1],
+          correct: math.options[1] === math.correctAnswer,
+          picked: false,
+        },
+        {
+          id: "C",
+          x: 500,
+          y: 240,
+          width: 50,
+          height: 50,
+          value: math.options[2],
+          correct: math.options[2] === math.correctAnswer,
+          picked: false,
+        },
+        {
+          id: "D",
+          x: 650,
+          y: 300,
+          width: 50,
+          height: 50,
+          value: math.options[3],
+          correct: math.options[3] === math.correctAnswer,
+          picked: false,
+        },
+      ],
+      key: { x: 400, y: 100, width: 30, height: 30, visible: false },
+      door: { x: 800, y: 420, width: 50, height: 60, locked: true },
+      math,
     }
 
-    data.goalDoor = {
-      x: 100 + platformCount * 160 - 60,
-      y: 350,
-      width: 60,
-      height: 80,
-    }
-
-    data.duck = {
-      x: 80,
-      y: 400,
-      width: 40,
-      height: 40,
-      vx: 0,
-      vy: 0,
-      isJumping: false,
-    }
+    gameMapRef.current = gameMap
   }
 
-  const startGame = () => {
-    initGame()
-    setScore(0)
-    setTimeLeft(90)
-    setGameState("PLAYING")
+  const collide = (a: MapObject, b: MapObject) => {
+    return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
   }
 
-  const render = () => {
+  const updateGameMap = () => {
+    const map = gameMapRef.current
+    if (!map) return
+
     const canvas = canvasRef.current
     if (!canvas) return
+
+    // Physics
+    map.duck.vy += 0.5
+    map.duck.y += map.duck.vy
+    map.duck.x += map.duck.vx
+    map.duck.vx *= 0.9
+
+    // Platform collision
+    let onPlatform = false
+    map.platforms.forEach((p) => {
+      if (
+        map.duck.y + map.duck.height >= p.y &&
+        map.duck.y + map.duck.height <= p.y + 10 &&
+        map.duck.x + map.duck.width > p.x &&
+        map.duck.x < p.x + p.width
+      ) {
+        map.duck.y = p.y - map.duck.height
+        map.duck.vy = 0
+        map.duck.isJumping = false
+        onPlatform = true
+      }
+    })
+
+    // Boundaries
+    if (map.duck.x < 0) map.duck.x = 0
+    if (map.duck.x + map.duck.width > canvas.width) map.duck.x = canvas.width - map.duck.width
+    if (map.duck.y > canvas.height) setGameState("LOSE")
+
+    map.answerTiles.forEach((tile) => {
+      if (!tile.picked && collide(map.duck, tile)) {
+        tile.picked = true
+
+        if (tile.correct) {
+          map.key.visible = true
+          setScore((prev) => prev + 100)
+        } else {
+          setScore((prev) => Math.max(0, prev - 20))
+        }
+      }
+    })
+
+    if (map.key.visible && collide(map.duck, map.key)) {
+      map.key.visible = false
+      map.door.locked = false
+      setScore((prev) => prev + 50)
+    }
+
+    if (map.door.locked === false && collide(map.duck, map.door)) {
+      setTotalScore((prev) => prev + score)
+      if (!completedLevels.includes(currentLevel)) {
+        setCompletedLevels([...completedLevels, currentLevel])
+      }
+
+      if (currentLevel >= 10) {
+        setGameState("SHOP")
+      } else {
+        setCurrentLevel((prev) => prev + 1)
+        setGameState("LEVEL_SELECT")
+      }
+    }
+  }
+
+  const renderGameMap = () => {
+    const canvas = canvasRef.current
+    const map = gameMapRef.current
+    if (!canvas || !map) return
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const data = gameDataRef.current
-
-    // Checkerboard background
+    // Background
     ctx.fillStyle = "#FFA500"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     for (let x = 0; x < canvas.width; x += 40) {
@@ -169,54 +250,53 @@ export default function MathDuckPlatformer() {
     ctx.fillStyle = "#87CEEB"
     ctx.fillRect(0, 0, canvas.width, 150)
 
-    // Clouds
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)"
-    ;[
-      [200, 80],
-      [700, 100],
-    ].forEach(([cx, cy]) => {
-      ctx.beginPath()
-      ctx.arc(cx - 30, cy, 30, 0, Math.PI * 2)
-      ctx.arc(cx + 10, cy, 35, 0, Math.PI * 2)
-      ctx.arc(cx - 50, cy, 28, 0, Math.PI * 2)
-      ctx.fill()
-    })
-
     // Platforms
-    data.platforms.forEach((p) => {
+    map.platforms.forEach((p) => {
       ctx.fillStyle = "#FF8C00"
       ctx.fillRect(p.x, p.y, p.width, p.height)
       ctx.strokeStyle = "#000"
-      ctx.lineWidth = 3
+      ctx.lineWidth = 2
       ctx.strokeRect(p.x, p.y, p.width, p.height)
 
       ctx.fillStyle = "#7FD700"
       for (let i = 0; i < p.width; i += 10) {
-        ctx.fillRect(p.x + i, p.y - 8, 8, 8)
+        ctx.fillRect(p.x + i, p.y - 6, 8, 6)
       }
     })
 
-    if (data.keyPosition && !data.hasKey) {
+    // Answer tiles
+    map.answerTiles.forEach((tile) => {
+      ctx.fillStyle = tile.picked ? "#A9A9A9" : "#FFFF00"
+      ctx.fillRect(tile.x, tile.y, tile.width, tile.height)
+      ctx.strokeStyle = "#000"
+      ctx.lineWidth = 2
+      ctx.strokeRect(tile.x, tile.y, tile.width, tile.height)
+
+      ctx.fillStyle = "#000"
+      ctx.font = "bold 24px Arial"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      ctx.fillText(tile.value.toString(), tile.x + tile.width / 2, tile.y + tile.height / 2)
+    })
+
+    // Key
+    if (map.key.visible) {
       ctx.fillStyle = "#FFD700"
-      ctx.fillRect(data.keyPosition.x - 8, data.keyPosition.y - 8, 16, 16)
-      ctx.fillStyle = "#FFA500"
-      ctx.arc(data.keyPosition.x - 3, data.keyPosition.y - 3, 4, 0, Math.PI * 2)
-      ctx.beginPath()
-      ctx.arc(data.keyPosition.x - 3, data.keyPosition.y - 3, 4, 0, Math.PI * 2)
-      ctx.fill()
+      ctx.fillRect(map.key.x, map.key.y, map.key.width, map.key.height)
+      ctx.strokeStyle = "#FFA500"
+      ctx.lineWidth = 2
+      ctx.strokeRect(map.key.x, map.key.y, map.key.width, map.key.height)
     }
 
-    // Goal door
-    ctx.fillStyle = "#FF69B4"
-    ctx.fillRect(data.goalDoor.x, data.goalDoor.y, data.goalDoor.width, data.goalDoor.height)
+    // Door
+    ctx.fillStyle = map.door.locked ? "#FF69B4" : "#90EE90"
+    ctx.fillRect(map.door.x, map.door.y, map.door.width, map.door.height)
     ctx.strokeStyle = "#000"
-    ctx.lineWidth = 3
-    ctx.strokeRect(data.goalDoor.x, data.goalDoor.y, data.goalDoor.width, data.goalDoor.height)
+    ctx.lineWidth = 2
+    ctx.strokeRect(map.door.x, map.door.y, map.door.width, map.door.height)
 
-    ctx.fillStyle = data.hasKey ? "#00FF00" : "#FFFF00"
-    ctx.fillRect(data.goalDoor.x + 10, data.goalDoor.y + 15, 40, 40)
-
-    const characterEmoji =
+    // Duck
+    const charEmoji =
       selectedCharacter === "duck"
         ? "🦆"
         : selectedCharacter === "rabbit"
@@ -224,17 +304,12 @@ export default function MathDuckPlatformer() {
           : selectedCharacter === "bird"
             ? "🐦"
             : "🐠"
-
     ctx.font = "40px Arial"
     ctx.textAlign = "center"
-    ctx.fillText(characterEmoji, data.duck.x + 20, data.duck.y + 25)
+    ctx.textBaseline = "middle"
+    ctx.fillText(charEmoji, map.duck.x + map.duck.width / 2, map.duck.y + map.duck.height / 2)
 
-    // Shadow
-    ctx.fillStyle = "rgba(0, 0, 0, 0.2)"
-    ctx.beginPath()
-    ctx.ellipse(data.duck.x + 20, data.duck.y + 42, 18, 4, 0, 0, Math.PI * 2)
-    ctx.fill()
-
+    // Question box at corner
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)"
     ctx.fillRect(10, 10, 320, 100)
     ctx.strokeStyle = "#000"
@@ -244,94 +319,11 @@ export default function MathDuckPlatformer() {
     ctx.fillStyle = "#000"
     ctx.font = "bold 28px Arial"
     ctx.textAlign = "left"
-    ctx.fillText(`${data.math.a} × ${data.math.b} = ?`, 20, 45)
+    ctx.textBaseline = "top"
+    ctx.fillText(`${map.math.a} × ${map.math.b} = ?`, 20, 20)
 
     ctx.font = "16px Arial"
-    data.math.options.forEach((opt, idx) => {
-      const y = 65 + idx * 18
-      const isSelected = data.selectedAnswer === opt
-      const isCorrect = opt === data.math.correctAnswer
-
-      ctx.fillStyle = isSelected ? "#FFD700" : isCorrect && data.selectedAnswer ? "#90EE90" : "#FFF"
-      ctx.fillRect(20, y - 12, 60, 16)
-      ctx.strokeStyle = "#000"
-      ctx.lineWidth = 1
-      ctx.strokeRect(20, y - 12, 60, 16)
-
-      ctx.fillStyle = "#000"
-      ctx.textAlign = "center"
-      ctx.fillText(opt.toString(), 50, y)
-    })
-  }
-
-  const update = () => {
-    const data = gameDataRef.current
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    data.duck.vy += 0.5
-    data.duck.y += data.duck.vy
-    data.duck.x += data.duck.vx
-    data.duck.vx *= 0.95
-
-    let onPlatform = false
-    data.platforms.forEach((p) => {
-      if (
-        data.duck.y + data.duck.height >= p.y &&
-        data.duck.y + data.duck.height <= p.y + 15 &&
-        data.duck.x + data.duck.width > p.x &&
-        data.duck.x < p.x + p.width
-      ) {
-        data.duck.y = p.y - data.duck.height
-        data.duck.vy = 0
-        data.duck.isJumping = false
-        onPlatform = true
-      }
-    })
-
-    if (data.duck.y > canvas.height) {
-      setGameState("LOSE")
-      return
-    }
-
-    if (data.keyPosition && !data.hasKey) {
-      if (
-        data.duck.x + data.duck.width > data.keyPosition.x - 20 &&
-        data.duck.x < data.keyPosition.x + 20 &&
-        data.duck.y + data.duck.height > data.keyPosition.y - 20 &&
-        data.duck.y < data.keyPosition.y + 20
-      ) {
-        data.hasKey = true
-        setScore((prev) => prev + 50)
-      }
-    }
-
-    if (data.hasKey) {
-      if (
-        data.duck.x + data.duck.width > data.goalDoor.x &&
-        data.duck.x < data.goalDoor.x + data.goalDoor.width &&
-        data.duck.y + data.duck.height > data.goalDoor.y &&
-        data.duck.y < data.goalDoor.y + data.goalDoor.height
-      ) {
-        setTotalScore((prev) => prev + score)
-
-        if (!completedLevels.includes(currentLevel)) {
-          setCompletedLevels([...completedLevels, currentLevel])
-        }
-
-        if (currentLevel >= 10) {
-          setGameState("SHOP")
-        } else {
-          setCurrentLevel((prev) => prev + 1)
-          setGameState("LEVEL_SELECT")
-        }
-      }
-    }
-
-    if (data.duck.x < 0) data.duck.x = 0
-    if (data.duck.x + data.duck.width > canvas.width) {
-      data.duck.x = canvas.width - data.duck.width
-    }
+    ctx.fillText("(Chạm vào ô đáp án)", 20, 60)
   }
 
   // Input handling
@@ -339,38 +331,51 @@ export default function MathDuckPlatformer() {
     if (gameState !== "PLAYING") return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const data = gameDataRef.current
-      const key = e.key.toLowerCase()
+      keysPressed.current[e.key.toLowerCase()] = true
 
-      if (["a", "arrowleft"].includes(key)) {
-        data.duck.vx = -5
-      }
-      if (["d", "arrowright"].includes(key)) {
-        data.duck.vx = 5
-      }
-      if (["w", "arrowup", " "].includes(key) && !data.duck.isJumping) {
-        data.duck.vy = -12
-        data.duck.isJumping = true
-        e.preventDefault()
-      }
+      const map = gameMapRef.current
+      if (!map) return
 
-      const num = Number.parseInt(key)
-      if (num >= 1 && num <= 3) {
-        const data = gameDataRef.current
-        data.selectedAnswer = data.math.options[num - 1]
-
-        if (data.selectedAnswer === data.math.correctAnswer) {
-          data.keyPosition = {
-            x: data.duck.x + 60,
-            y: 250,
-          }
-          data.showAnswers = false
-        }
+      if (["w", "arrowup", " "].includes(e.key.toLowerCase()) && !map.duck.isJumping) {
+        map.duck.vy = -12
+        map.duck.isJumping = true
       }
     }
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keysPressed.current[e.key.toLowerCase()] = false
+    }
+
     window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    window.addEventListener("keyup", handleKeyUp)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+    }
+  }, [gameState])
+
+  // Game loop
+  useEffect(() => {
+    if (gameState !== "PLAYING") return
+
+    const interval = setInterval(() => {
+      const map = gameMapRef.current
+      if (!map) return
+
+      // Handle movement input
+      if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) {
+        map.duck.vx = -5
+      }
+      if (keysPressed.current["d"] || keysPressed.current["arrowright"]) {
+        map.duck.vx = 5
+      }
+
+      updateGameMap()
+      renderGameMap()
+    }, 1000 / 60)
+
+    return () => clearInterval(interval)
   }, [gameState])
 
   // Timer
@@ -390,21 +395,12 @@ export default function MathDuckPlatformer() {
     return () => clearInterval(timer)
   }, [gameState])
 
-  // Game loop
-  useEffect(() => {
-    if (gameState !== "PLAYING") return
-
-    const interval = setInterval(() => {
-      update()
-      render()
-    }, 1000 / 60)
-
-    return () => clearInterval(interval)
-  }, [gameState])
-
-  useEffect(() => {
-    render()
-  }, [])
+  const startGame = () => {
+    initGameMap(currentLevel)
+    setScore(0)
+    setTimeLeft(120)
+    setGameState("PLAYING")
+  }
 
   // Render based on gameState
   if (gameState === "MENU") {
@@ -412,16 +408,16 @@ export default function MathDuckPlatformer() {
       <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
         <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-blue-400 to-blue-300 border-4 border-blue-600">
           <div className="text-center space-y-6">
-            <h1 className="text-6xl font-black text-white drop-shadow-lg">🦆 MATH DUCK PLATFORMER</h1>
+            <h1 className="text-6xl font-black text-white drop-shadow-lg">🦆 MATH DUCK</h1>
             <p className="text-2xl text-white">Nhảy & Giải Toán!</p>
 
             <div className="bg-white rounded-lg p-4 text-left space-y-2 text-lg">
               <p className="font-bold">Hướng dẫn:</p>
               <p>A/D hoặc ⬅️➡️: Di chuyển</p>
               <p>W hoặc ⬆️ hoặc SPACE: Nhảy</p>
-              <p>1/2/3: Chọn đáp án</p>
-              <p>Chọn đúng → Chìa khóa rơi ra</p>
-              <p>Nhặt chìa khóa → Cửa mở</p>
+              <p>Chạm vào ô đáp án để trả lời</p>
+              <p>Trả lời đúng → Chìa khóa xuất hiện</p>
+              <p>Nhặt chìa khóa → Cửa tự mở</p>
             </div>
 
             <Button
@@ -452,11 +448,7 @@ export default function MathDuckPlatformer() {
                     setCurrentLevel(1)
                     startGame()
                   }}
-                  className={`p-4 rounded-lg font-bold text-2xl border-4 transition ${
-                    selectedCharacter === char
-                      ? "bg-yellow-300 border-yellow-600 scale-110"
-                      : "bg-white border-gray-400"
-                  }`}
+                  className={`p-4 rounded-lg font-bold text-4xl border-4 transition ${selectedCharacter === char ? "bg-yellow-300 border-yellow-600 scale-110" : "bg-white border-gray-400"}`}
                 >
                   {info.emoji}
                 </button>
@@ -464,10 +456,7 @@ export default function MathDuckPlatformer() {
             </div>
 
             <Button
-              onClick={() => {
-                setCurrentLevel(1)
-                setGameState("LEVEL_SELECT")
-              }}
+              onClick={() => setGameState("LEVEL_SELECT")}
               className="text-2xl px-8 py-4 w-full font-black bg-green-500 hover:bg-green-600 text-white border-4"
             >
               🎮 CHƠI
@@ -507,11 +496,7 @@ export default function MathDuckPlatformer() {
                       setCurrentLevel(levelNum)
                       startGame()
                     }}
-                    className={`text-2xl py-6 font-black border-4 transition ${
-                      isCompleted
-                        ? "bg-green-400 hover:bg-green-500 border-green-700"
-                        : "bg-blue-300 hover:bg-blue-400 border-blue-600"
-                    }`}
+                    className={`text-2xl py-6 font-black border-4 transition ${isCompleted ? "bg-green-400 hover:bg-green-500 border-green-700" : "bg-blue-300 hover:bg-blue-400 border-blue-600"}`}
                   >
                     {isCompleted ? "✓" : ""} Màn {levelNum}
                   </Button>
@@ -539,12 +524,6 @@ export default function MathDuckPlatformer() {
             <span>🎮 Màn {currentLevel}/10</span>
             <span>⏱️ {timeLeft}s</span>
             <span>⭐ {score}</span>
-            <Button
-              onClick={() => setGameState("SHOP_INGAME")}
-              className="text-lg px-3 py-1 font-black bg-purple-500 hover:bg-purple-600 text-white border-2"
-            >
-              🛍️ SHOP
-            </Button>
           </div>
 
           <canvas
@@ -555,7 +534,7 @@ export default function MathDuckPlatformer() {
           />
 
           <div className="bg-white rounded-lg p-4 border-2">
-            <p className="text-center font-bold text-lg">Nhấn 1, 2, hoặc 3 để chọn đáp án</p>
+            <p className="text-center font-bold text-lg">Nhảy tới ô đáp án để trả lời câu hỏi</p>
           </div>
         </div>
       </div>
@@ -598,10 +577,7 @@ export default function MathDuckPlatformer() {
             </div>
 
             <Button
-              onClick={() => {
-                setGameState("CHARACTER_SELECT")
-                setScore(0)
-              }}
+              onClick={() => setGameState("CHARACTER_SELECT")}
               className="text-2xl px-8 py-6 w-full font-black bg-blue-600 hover:bg-blue-700 text-white border-4"
             >
               🎮 CHƠI LẠI
@@ -612,63 +588,17 @@ export default function MathDuckPlatformer() {
     )
   }
 
-  if (gameState === "SHOP_INGAME") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-purple-400 to-purple-300 border-4 border-purple-600">
-          <div className="text-center space-y-6">
-            <h1 className="text-4xl font-black text-white drop-shadow-lg">🛍️ SHOP NÓ</h1>
-            <p className="text-2xl font-black">💰 {totalScore}</p>
-
-            <div className="grid grid-cols-3 gap-4">
-              {Object.entries(characterShop)
-                .filter(([char]) => char !== "duck")
-                .map(([char, info]) => (
-                  <div key={char} className="bg-white rounded-lg p-4 border-2 space-y-2">
-                    <p className="text-4xl">{info.emoji}</p>
-                    <p className="font-bold">{info.name}</p>
-                    <p className="text-lg font-black">💰 {info.price}</p>
-                    <Button
-                      onClick={() => {
-                        if (totalScore >= info.price && !ownedCharacters.includes(char as Character)) {
-                          setOwnedCharacters([...ownedCharacters, char as Character])
-                          setTotalScore((prev) => prev - info.price)
-                        }
-                      }}
-                      disabled={totalScore < info.price || ownedCharacters.includes(char as Character)}
-                      className="w-full text-sm"
-                    >
-                      {ownedCharacters.includes(char as Character) ? "✓ CÓ" : "MUA"}
-                    </Button>
-                  </div>
-                ))}
-            </div>
-
-            <Button
-              onClick={() => setGameState("PLAYING")}
-              className="text-2xl px-8 py-4 w-full font-black bg-green-500 hover:bg-green-600 text-white border-4"
-            >
-              ⬅️ TIẾP TỤC
-            </Button>
-          </div>
-        </Card>
-      </div>
-    )
-  }
-
   if (gameState === "LOSE") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-orange-300 to-orange-200 border-4 border-orange-600">
+        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-red-400 to-red-300 border-4 border-red-600">
           <div className="text-center space-y-6">
-            <h1 className="text-6xl font-black text-white drop-shadow-lg">😢 THUA</h1>
-            <p className="text-3xl font-bold">Điểm: {score}</p>
+            <h1 className="text-5xl font-black text-white drop-shadow-lg">💔 HẾT THỜI GIAN!</h1>
+            <p className="text-3xl font-black text-white">Điểm: {score}</p>
+
             <Button
-              onClick={() => {
-                setCurrentLevel(1)
-                setGameState("CHARACTER_SELECT")
-              }}
-              className="text-2xl px-8 py-6 w-full font-black bg-orange-600 hover:bg-orange-700 text-white border-4"
+              onClick={() => setGameState("LEVEL_SELECT")}
+              className="text-2xl px-8 py-6 w-full font-black bg-blue-600 hover:bg-blue-700 text-white border-4"
             >
               🔄 THỬ LẠI
             </Button>
