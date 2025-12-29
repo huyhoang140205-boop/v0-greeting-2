@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
-type GameState = "MENU" | "CHARACTER_SELECT" | "PLAYING" | "WIN" | "SHOP" | "LOSE"
+type GameState = "MENU" | "CHARACTER_SELECT" | "LEVEL_SELECT" | "PLAYING" | "WIN" | "SHOP" | "LOSE" | "SHOP_INGAME"
 type Character = "duck" | "rabbit" | "bird" | "fish"
 
 interface Platform {
@@ -49,6 +49,7 @@ export default function MathDuckPlatformer() {
   const [currentLevel, setCurrentLevel] = useState(1)
   const [selectedCharacter, setSelectedCharacter] = useState<Character>("duck")
   const [ownedCharacters, setOwnedCharacters] = useState<Character[]>(["duck"])
+  const [completedLevels, setCompletedLevels] = useState<number[]>([])
 
   const characterShop: Record<Character, { name: string; price: number; emoji: string }> = {
     duck: { name: "Vịt", price: 0, emoji: "🦆" },
@@ -106,21 +107,21 @@ export default function MathDuckPlatformer() {
     data.hasKey = false
     data.keyPosition = null
 
-    const platformCount = 4 + Math.floor(currentLevel / 3)
+    const platformCount = 3 + Math.floor(currentLevel / 3)
     data.platforms = [{ x: 0, y: 450, width: 150, height: 30 }]
 
     for (let i = 1; i < platformCount; i++) {
       data.platforms.push({
-        x: 100 + i * 180,
-        y: 350 - (i % 3) * 80,
+        x: 100 + i * 160,
+        y: 400 - (i % 3) * 60,
         width: 140,
         height: 30,
       })
     }
 
     data.goalDoor = {
-      x: 100 + platformCount * 180 - 60,
-      y: 300,
+      x: 100 + platformCount * 160 - 60,
+      y: 350,
       width: 60,
       height: 80,
     }
@@ -314,12 +315,15 @@ export default function MathDuckPlatformer() {
       ) {
         setTotalScore((prev) => prev + score)
 
+        if (!completedLevels.includes(currentLevel)) {
+          setCompletedLevels([...completedLevels, currentLevel])
+        }
+
         if (currentLevel >= 10) {
           setGameState("SHOP")
         } else {
           setCurrentLevel((prev) => prev + 1)
-          setGameState("PLAYING")
-          setTimeout(() => startGame(), 500)
+          setGameState("LEVEL_SELECT")
         }
       }
     }
@@ -462,11 +466,64 @@ export default function MathDuckPlatformer() {
             <Button
               onClick={() => {
                 setCurrentLevel(1)
-                startGame()
+                setGameState("LEVEL_SELECT")
               }}
               className="text-2xl px-8 py-4 w-full font-black bg-green-500 hover:bg-green-600 text-white border-4"
             >
               🎮 CHƠI
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (gameState === "LEVEL_SELECT") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
+        <Card className="w-full max-w-4xl p-8 bg-gradient-to-b from-blue-400 to-blue-300 border-4 border-blue-600">
+          <div className="text-center space-y-6">
+            <div className="flex justify-between items-center">
+              <h1 className="text-5xl font-black text-white drop-shadow-lg">Chọn Màn</h1>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setGameState("SHOP")}
+                  className="text-xl px-6 py-3 font-black bg-purple-500 hover:bg-purple-600 text-white border-4"
+                >
+                  🛍️ SHOP
+                </Button>
+                <div className="bg-white rounded-lg px-4 py-2 border-4 text-2xl font-black">💰 {totalScore}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-5 gap-3">
+              {Array.from({ length: 10 }).map((_, i) => {
+                const levelNum = i + 1
+                const isCompleted = completedLevels.includes(levelNum)
+                return (
+                  <Button
+                    key={levelNum}
+                    onClick={() => {
+                      setCurrentLevel(levelNum)
+                      startGame()
+                    }}
+                    className={`text-2xl py-6 font-black border-4 transition ${
+                      isCompleted
+                        ? "bg-green-400 hover:bg-green-500 border-green-700"
+                        : "bg-blue-300 hover:bg-blue-400 border-blue-600"
+                    }`}
+                  >
+                    {isCompleted ? "✓" : ""} Màn {levelNum}
+                  </Button>
+                )
+              })}
+            </div>
+
+            <Button
+              onClick={() => setGameState("CHARACTER_SELECT")}
+              className="text-2xl px-8 py-4 w-full font-black bg-red-500 hover:bg-red-600 text-white border-4"
+            >
+              ⬅️ QUAY LẠI
             </Button>
           </div>
         </Card>
@@ -482,6 +539,12 @@ export default function MathDuckPlatformer() {
             <span>🎮 Màn {currentLevel}/10</span>
             <span>⏱️ {timeLeft}s</span>
             <span>⭐ {score}</span>
+            <Button
+              onClick={() => setGameState("SHOP_INGAME")}
+              className="text-lg px-3 py-1 font-black bg-purple-500 hover:bg-purple-600 text-white border-2"
+            >
+              🛍️ SHOP
+            </Button>
           </div>
 
           <canvas
@@ -542,6 +605,50 @@ export default function MathDuckPlatformer() {
               className="text-2xl px-8 py-6 w-full font-black bg-blue-600 hover:bg-blue-700 text-white border-4"
             >
               🎮 CHƠI LẠI
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (gameState === "SHOP_INGAME") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
+        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-purple-400 to-purple-300 border-4 border-purple-600">
+          <div className="text-center space-y-6">
+            <h1 className="text-4xl font-black text-white drop-shadow-lg">🛍️ SHOP NÓ</h1>
+            <p className="text-2xl font-black">💰 {totalScore}</p>
+
+            <div className="grid grid-cols-3 gap-4">
+              {Object.entries(characterShop)
+                .filter(([char]) => char !== "duck")
+                .map(([char, info]) => (
+                  <div key={char} className="bg-white rounded-lg p-4 border-2 space-y-2">
+                    <p className="text-4xl">{info.emoji}</p>
+                    <p className="font-bold">{info.name}</p>
+                    <p className="text-lg font-black">💰 {info.price}</p>
+                    <Button
+                      onClick={() => {
+                        if (totalScore >= info.price && !ownedCharacters.includes(char as Character)) {
+                          setOwnedCharacters([...ownedCharacters, char as Character])
+                          setTotalScore((prev) => prev - info.price)
+                        }
+                      }}
+                      disabled={totalScore < info.price || ownedCharacters.includes(char as Character)}
+                      className="w-full text-sm"
+                    >
+                      {ownedCharacters.includes(char as Character) ? "✓ CÓ" : "MUA"}
+                    </Button>
+                  </div>
+                ))}
+            </div>
+
+            <Button
+              onClick={() => setGameState("PLAYING")}
+              className="text-2xl px-8 py-4 w-full font-black bg-green-500 hover:bg-green-600 text-white border-4"
+            >
+              ⬅️ TIẾP TỤC
             </Button>
           </div>
         </Card>
