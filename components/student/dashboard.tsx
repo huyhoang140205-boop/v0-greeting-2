@@ -251,7 +251,7 @@ export function StudentDashboard({ user, profile }: any) {
               src={profile?.avatar_url || images.avatarDefault}
               className="w-12 h-12 rounded-full border-2 border-pink-400"
             />
-            <h1 className="text-3xl font-extrabold text-pink-500">Học tập cùng Flashcard 🎒</h1>
+            <h1 className="text-3xl font-extrabold text-pink-500">Tiền tiểu học 12🎒</h1>
           </div>
 
           <div className="flex gap-4 items-center">
