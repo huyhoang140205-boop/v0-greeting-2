@@ -99,9 +99,9 @@ export default function MathDuckPlatformer() {
       ],
       answerPositions: [
         { x: 450, y: 250 }, // A - CORRECT (in middle path)
-        { x: 50, y: 300 }, // B - Wrong (far left)
-        { x: 800, y: 100 }, // C - Wrong (far right top)
-        { x: 300, y: 150 }, // D - Wrong (left top)
+        { x: 20, y: 250 }, // B - Wrong (far left)
+        { x: 850, y: 50 }, // C - Wrong (far right top)
+        { x: 350, y: 80 }, // D - Wrong (left top)
       ],
     },
     2: {
@@ -120,9 +120,9 @@ export default function MathDuckPlatformer() {
       ],
       answerPositions: [
         { x: 380, y: 210 }, // A - CORRECT (at highest platform)
-        { x: 80, y: 200 }, // B - Wrong (far left)
-        { x: 700, y: 150 }, // C - Wrong (far right)
-        { x: 200, y: 100 }, // D - Wrong (left top)
+        { x: 50, y: 150 }, // B - Wrong (far left)
+        { x: 850, y: 100 }, // C - Wrong (far right)
+        { x: 250, y: 50 }, // D - Wrong (left top)
       ],
     },
     3: {
@@ -142,9 +142,9 @@ export default function MathDuckPlatformer() {
       ],
       answerPositions: [
         { x: 460, y: 220 }, // A - CORRECT (center peak)
-        { x: 100, y: 250 }, // B - Wrong (far left)
-        { x: 750, y: 100 }, // C - Wrong (far right)
-        { x: 50, y: 100 }, // D - Wrong (far left top)
+        { x: 50, y: 200 }, // B - Wrong (far left)
+        { x: 880, y: 80 }, // C - Wrong (far right)
+        { x: 200, y: 50 }, // D - Wrong (far left top)
       ],
     },
   }
@@ -161,10 +161,10 @@ export default function MathDuckPlatformer() {
           height: 20,
         })),
         answerPositions: [
-          { x: 350 + Math.random() * 50, y: 200 }, // A - CORRECT (center)
-          { x: 50, y: 150 + Math.random() * 100 }, // B - Wrong (left)
-          { x: 750, y: 100 + Math.random() * 150 }, // C - Wrong (right)
-          { x: 100, y: 50 + Math.random() * 100 }, // D - Wrong (left top)
+          { x: 450, y: 180 }, // A - CORRECT (center middle)
+          { x: 50, y: 200 }, // B - Wrong (far left)
+          { x: 900, y: 80 }, // C - Wrong (far right)
+          { x: 250, y: 50 }, // D - Wrong (left top)
         ],
       }
     }
@@ -196,16 +196,22 @@ export default function MathDuckPlatformer() {
     const math = generateMathProblem(level)
     const levelData = levelDataMap[level] || levelDataMap[1]
 
-    const answerTiles: AnswerTile[] = levelData.answerPositions.map((pos, idx) => ({
-      id: ["A", "B", "C", "D"][idx],
-      x: pos.x,
-      y: pos.y,
-      width: 50,
-      height: 50,
-      value: math.options[idx],
-      correct: math.options[idx] === math.correctAnswer,
-      picked: false,
-    }))
+    const shuffledPositions = [...levelData.answerPositions].sort(() => Math.random() - 0.5)
+
+    const answerTiles: AnswerTile[] = math.options.map((option, idx) => {
+      const pos = shuffledPositions[idx]
+      const isCorrect = option === math.correctAnswer
+      return {
+        id: ["A", "B", "C", "D"][idx],
+        x: pos.x,
+        y: pos.y,
+        width: 50,
+        height: 50,
+        value: option,
+        correct: isCorrect,
+        picked: false,
+      }
+    })
 
     const gameMap: GameMap = {
       duck: {
@@ -234,6 +240,7 @@ export default function MathDuckPlatformer() {
 
   const saveGameScoreToDB = async (levelNum: number, finalScore: number, isWin: boolean) => {
     try {
+      console.log("[v0] Saving score to database:", { levelNum, finalScore, isWin })
       const response = await fetch("/api/games/math-duck-platformer/save-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,9 +251,13 @@ export default function MathDuckPlatformer() {
           character: playerState.currentCharacter,
         }),
       })
-      if (!response.ok) console.error("Failed to save score")
+      if (response.ok) {
+        console.log("[v0] Score saved successfully")
+      } else {
+        console.error("[v0] Failed to save score:", response.statusText)
+      }
     } catch (error) {
-      console.error("Error saving score:", error)
+      console.error("[v0] Error saving score:", error)
     }
   }
 
@@ -290,10 +301,16 @@ export default function MathDuckPlatformer() {
         tile.picked = true
 
         if (tile.correct) {
+          map.key.x = tile.x
+          map.key.y = tile.y - 40
           map.key.visible = true
           setScore((prev) => prev + 100)
         } else {
-          saveGameScoreToDB(currentLevel, score, false)
+          setScore((prev) => {
+            const finalScore = prev
+            saveGameScoreToDB(currentLevel, finalScore, false)
+            return prev
+          })
           setGameState("LOSE")
           return
         }
@@ -307,8 +324,8 @@ export default function MathDuckPlatformer() {
     }
 
     if (!map.door.locked && collide(map.duck, map.door)) {
-      const earnedCoins = score
-      saveGameScoreToDB(currentLevel, score, true)
+      const earnedCoins = score + 150
+      saveGameScoreToDB(currentLevel, earnedCoins, true)
       setPlayerState((prev) => ({
         ...prev,
         coins: prev.coins + earnedCoins,
