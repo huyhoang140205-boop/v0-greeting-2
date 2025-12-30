@@ -225,6 +225,24 @@ export default function MathDuckPlatformer() {
     return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
   }
 
+  const saveGameScoreToDB = async (levelNum: number, finalScore: number, isWin: boolean) => {
+    try {
+      const response = await fetch("/api/games/math-duck-platformer/save-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          level: levelNum,
+          score: finalScore,
+          isWin,
+          character: playerState.currentCharacter,
+        }),
+      })
+      if (!response.ok) console.error("Failed to save score")
+    } catch (error) {
+      console.error("Error saving score:", error)
+    }
+  }
+
   const updateGameMap = () => {
     const map = gameMapRef.current
     if (!map) return
@@ -254,7 +272,11 @@ export default function MathDuckPlatformer() {
 
     if (map.duck.x < 0) map.duck.x = 0
     if (map.duck.x + map.duck.width > canvas.width) map.duck.x = canvas.width - map.duck.width
-    if (map.duck.y > canvas.height) setGameState("LOSE")
+    if (map.duck.y > canvas.height) {
+      saveGameScoreToDB(currentLevel, score, false)
+      setGameState("LOSE")
+      return
+    }
 
     map.answerTiles.forEach((tile) => {
       if (!tile.picked && collide(map.duck, tile)) {
@@ -264,7 +286,9 @@ export default function MathDuckPlatformer() {
           map.key.visible = true
           setScore((prev) => prev + 100)
         } else {
-          setScore((prev) => Math.max(0, prev - 20))
+          saveGameScoreToDB(currentLevel, score, false)
+          setGameState("LOSE")
+          return
         }
       }
     })
@@ -276,20 +300,17 @@ export default function MathDuckPlatformer() {
     }
 
     if (!map.door.locked && collide(map.duck, map.door)) {
+      const earnedCoins = score
+      saveGameScoreToDB(currentLevel, score, true)
       setPlayerState((prev) => ({
         ...prev,
-        coins: prev.coins + score,
+        coins: prev.coins + earnedCoins,
         completedLevels: prev.completedLevels.includes(currentLevel)
           ? prev.completedLevels
           : [...prev.completedLevels, currentLevel],
       }))
 
-      if (currentLevel >= 10) {
-        setGameState("LEVEL_SELECT")
-      } else {
-        setCurrentLevel((prev) => prev + 1)
-        setGameState("LEVEL_SELECT")
-      }
+      setGameState("WIN")
     }
   }
 
@@ -628,15 +649,53 @@ export default function MathDuckPlatformer() {
       <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
         <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-red-400 to-red-300 border-4 border-red-600">
           <div className="text-center space-y-6">
-            <h1 className="text-5xl font-black text-white drop-shadow-lg">💔 HẾT THỜI GIAN!</h1>
-            <p className="text-3xl font-black text-white">Điểm: {score}</p>
+            <h1 className="text-6xl font-black text-white drop-shadow-lg">💥 GAME OVER</h1>
+            <p className="text-3xl font-bold text-white">Điểm: {score}</p>
+            <p className="text-2xl text-white">Trả lời sai hoặc rơi xuống!</p>
 
-            <Button
-              onClick={() => setGameState("LEVEL_SELECT")}
-              className="text-2xl px-8 py-6 w-full font-black bg-blue-600 hover:bg-blue-700 text-white border-4"
-            >
-              🔄 THỬ LẠI
-            </Button>
+            <div className="space-y-3">
+              <Button
+                onClick={() => startGame()}
+                className="text-2xl px-8 py-6 w-full font-black bg-blue-500 hover:bg-blue-600 text-white border-4"
+              >
+                🔄 THỬ LẠI
+              </Button>
+              <Button
+                onClick={() => setGameState("LEVEL_SELECT")}
+                className="text-2xl px-8 py-6 w-full font-black bg-green-500 hover:bg-green-600 text-white border-4"
+              >
+                📋 CHỌN MÀN
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (gameState === "WIN") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
+        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-green-400 to-green-300 border-4 border-green-600">
+          <div className="text-center space-y-6">
+            <h1 className="text-6xl font-black text-white drop-shadow-lg">🎉 CHIẾN THẮNG!</h1>
+            <p className="text-3xl font-bold text-white">Điểm: {score}</p>
+            <p className="text-2xl text-white">Nhận được: 💰 {score} coins</p>
+
+            <div className="space-y-3">
+              <Button
+                onClick={() => startGame()}
+                className="text-2xl px-8 py-6 w-full font-black bg-blue-500 hover:bg-blue-600 text-white border-4"
+              >
+                🔄 CHƠI LẠI
+              </Button>
+              <Button
+                onClick={() => setGameState("LEVEL_SELECT")}
+                className="text-2xl px-8 py-6 w-full font-black bg-green-500 hover:bg-green-600 text-white border-4"
+              >
+                📋 CHỌN MÀN
+              </Button>
+            </div>
           </div>
         </Card>
       </div>
