@@ -425,31 +425,36 @@ export default function MathDuckPlatformer() {
     ctx.fillText("Chạm vào ô số để trả lời", 20, 65)
   }
 
-  useEffect(() => {
-    if (gameState !== "PLAYING") return
+    useEffect(() => {
+      if (gameState !== "PLAYING") return
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keysPressed.current[e.key.toLowerCase()] = true
+      const handleKeyDown = (e: KeyboardEvent) => {
+        keysPressed.current[e.key.toLowerCase()] = true
 
-      const map = gameMapRef.current
-      if (map && (e.key.toLowerCase() === "w" || e.key === "ArrowUp" || e.key === " ") && map.onGround) {
-        map.vy = -12
-        map.onGround = false
+        const map = gameMapRef.current
+        if (!map) return
+
+        if (
+          (e.key === "w" || e.key === "ArrowUp" || e.key === " ") &&
+          map.duck.onGround
+        ) {
+          map.duck.vy = -12
+          map.duck.onGround = false
+        }
       }
-    }
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysPressed.current[e.key.toLowerCase()] = false
-    }
+      const handleKeyUp = (e: KeyboardEvent) => {
+        keysPressed.current[e.key.toLowerCase()] = false
+      }
 
-    window.addEventListener("keydown", handleKeyDown)
-    window.addEventListener("keyup", handleKeyUp)
+      window.addEventListener("keydown", handleKeyDown)
+      window.addEventListener("keyup", handleKeyUp)
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("keyup", handleKeyUp)
-    }
-  }, [gameState])
+      return () => {
+        window.removeEventListener("keydown", handleKeyDown)
+        window.removeEventListener("keyup", handleKeyUp)
+      }
+    }, [gameState])
 
   useEffect(() => {
     if (gameState !== "PLAYING") {
@@ -464,13 +469,14 @@ export default function MathDuckPlatformer() {
       const map = gameMapRef.current
       if (!map) return
 
-      if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) {
-        map.duck.vx = -5
-      }
-      if (keysPressed.current["d"] || keysPressed.current["arrowright"]) {
-        map.duck.vx = 5
-      }
+        map.duck.vx = 0
 
+        if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) {
+          map.duck.vx = -4
+        }
+        if (keysPressed.current["d"] || keysPressed.current["arrowright"]) {
+          map.duck.vx = 4
+        }
       updateGameMap()
       renderGameMap()
     }, 1000 / 60)
