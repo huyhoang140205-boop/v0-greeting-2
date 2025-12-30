@@ -87,69 +87,95 @@ export default function MathDuckPlatformer() {
   const levelDataMap: Record<number, { platforms: MapObject[]; answerPositions: Array<{ x: number; y: number }> }> = {
     1: {
       platforms: [
-        { x: 30, y: 500, width: 140, height: 20 }, // Start
-        { x: 150, y: 450, width: 100, height: 20 },
-        { x: 250, y: 400, width: 100, height: 20 },
-        { x: 350, y: 350, width: 100, height: 20 },
-        { x: 450, y: 300, width: 100, height: 20 },
-        { x: 550, y: 350, width: 100, height: 20 },
-        { x: 650, y: 400, width: 100, height: 20 },
-        { x: 750, y: 450, width: 100, height: 20 },
-        { x: 800, y: 480, width: 140, height: 20 }, // Near door
+        { x: 50, y: 500, width: 100, height: 20 }, // Start
+        { x: 180, y: 450, width: 100, height: 20 },
+        { x: 310, y: 400, width: 100, height: 20 },
+        { x: 440, y: 350, width: 100, height: 20 },
+        { x: 570, y: 300, width: 100, height: 20 },
+        { x: 700, y: 350, width: 100, height: 20 },
+        { x: 800, y: 400, width: 120, height: 20 }, // Near door
       ],
       answerPositions: [
-        { x: 450, y: 250 }, // A - CORRECT (in middle path)
-        { x: 20, y: 250 }, // B - Wrong (far left)
-        { x: 850, y: 50 }, // C - Wrong (far right top)
-        { x: 350, y: 80 }, // D - Wrong (left top)
+        { x: 570, y: 240 }, // A - CORRECT (center middle accessible via main path)
+        { x: 100, y: 150 }, // B - Wrong (far left)
+        { x: 850, y: 80 }, // C - Wrong (far right)
+        { x: 300, y: 120 }, // D - Wrong (left side)
       ],
     },
     2: {
       platforms: [
-        { x: 30, y: 500, width: 140, height: 20 },
-        { x: 100, y: 450, width: 90, height: 20 },
-        { x: 170, y: 400, width: 90, height: 20 },
-        { x: 240, y: 350, width: 90, height: 20 },
-        { x: 310, y: 300, width: 90, height: 20 },
-        { x: 380, y: 250, width: 90, height: 20 },
-        { x: 450, y: 300, width: 90, height: 20 },
-        { x: 520, y: 350, width: 90, height: 20 },
-        { x: 590, y: 400, width: 90, height: 20 },
-        { x: 660, y: 450, width: 90, height: 20 },
-        { x: 800, y: 480, width: 140, height: 20 },
+        { x: 50, y: 480, width: 100, height: 20 }, // Start left
+        { x: 200, y: 420, width: 90, height: 20 },
+        { x: 350, y: 380, width: 90, height: 20 },
+        { x: 450, y: 320, width: 100, height: 20 }, // Center high
+        { x: 580, y: 380, width: 90, height: 20 },
+        { x: 700, y: 420, width: 90, height: 20 },
+        { x: 820, y: 480, width: 120, height: 20 }, // Door right
       ],
       answerPositions: [
-        { x: 380, y: 210 }, // A - CORRECT (at highest platform)
-        { x: 50, y: 150 }, // B - Wrong (far left)
-        { x: 850, y: 100 }, // C - Wrong (far right)
-        { x: 250, y: 50 }, // D - Wrong (left top)
+        { x: 450, y: 250 }, // A - CORRECT (center platform accessible)
+        { x: 100, y: 200 }, // B - Wrong (far left)
+        { x: 880, y: 150 }, // C - Wrong (far right)
+        { x: 300, y: 100 }, // D - Wrong (left upper)
       ],
     },
     3: {
       platforms: [
-        { x: 30, y: 500, width: 140, height: 20 },
-        { x: 110, y: 460, width: 80, height: 20 },
-        { x: 180, y: 420, width: 80, height: 20 },
-        { x: 250, y: 380, width: 80, height: 20 },
-        { x: 320, y: 340, width: 80, height: 20 },
-        { x: 390, y: 300, width: 80, height: 20 },
-        { x: 460, y: 260, width: 80, height: 20 },
-        { x: 530, y: 300, width: 80, height: 20 },
-        { x: 600, y: 340, width: 80, height: 20 },
-        { x: 670, y: 380, width: 80, height: 20 },
-        { x: 740, y: 420, width: 80, height: 20 },
-        { x: 800, y: 480, width: 140, height: 20 },
+        { x: 30, y: 480, width: 120, height: 20 }, // Start cave area
+        { x: 170, y: 440, width: 100, height: 20 },
+        { x: 300, y: 380, width: 100, height: 20 },
+        { x: 420, y: 320, width: 110, height: 20 }, // Main platform
+        { x: 550, y: 360, width: 100, height: 20 },
+        { x: 680, y: 410, width: 100, height: 20 },
+        { x: 800, y: 480, width: 120, height: 20 }, // Door right
       ],
       answerPositions: [
-        { x: 460, y: 220 }, // A - CORRECT (center peak)
-        { x: 50, y: 200 }, // B - Wrong (far left)
-        { x: 880, y: 80 }, // C - Wrong (far right)
-        { x: 200, y: 50 }, // D - Wrong (far left top)
+        { x: 420, y: 250 }, // A - CORRECT (center main platform)
+        { x: 80, y: 180 }, // B - Wrong (far left cave)
+        { x: 900, y: 120 }, // C - Wrong (far right)
+        { x: 250, y: 80 }, // D - Wrong (left upper)
+      ],
+    },
+    4: {
+      platforms: [
+        { x: 40, y: 490, width: 100, height: 20 }, // Start
+        { x: 160, y: 440, width: 90, height: 20 },
+        { x: 280, y: 390, width: 90, height: 20 },
+        { x: 400, y: 330, width: 100, height: 20 }, // Upper center
+        { x: 520, y: 280, width: 90, height: 20 },
+        { x: 640, y: 330, width: 90, height: 20 },
+        { x: 760, y: 390, width: 90, height: 20 },
+        { x: 820, y: 480, width: 120, height: 20 }, // Door
+      ],
+      answerPositions: [
+        { x: 400, y: 250 }, // A - CORRECT (upper center accessible)
+        { x: 100, y: 120 }, // B - Wrong (far left)
+        { x: 880, y: 80 }, // C - Wrong (far right top)
+        { x: 500, y: 100 }, // D - Wrong (center top)
+      ],
+    },
+    5: {
+      platforms: [
+        { x: 40, y: 490, width: 100, height: 20 }, // Start
+        { x: 150, y: 450, width: 85, height: 20 },
+        { x: 250, y: 410, width: 85, height: 20 },
+        { x: 350, y: 360, width: 95, height: 20 },
+        { x: 450, y: 300, width: 100, height: 20 }, // Center peak
+        { x: 560, y: 350, width: 90, height: 20 },
+        { x: 660, y: 400, width: 90, height: 20 },
+        { x: 760, y: 440, width: 90, height: 20 },
+        { x: 820, y: 480, width: 120, height: 20 }, // Door
+      ],
+      answerPositions: [
+        { x: 450, y: 230 }, // A - CORRECT (center peak)
+        { x: 120, y: 150 }, // B - Wrong (far left)
+        { x: 900, y: 100 }, // C - Wrong (far right upper)
+        { x: 600, y: 80 }, // D - Wrong (center right upper)
       ],
     },
   }
 
-  for (let i = 4; i <= 10; i++) {
+  for (let i = 6; i <= 10; i++) {
     if (!levelDataMap[i]) {
       const startX = 50
       const platformCount = 6 + i
@@ -164,7 +190,7 @@ export default function MathDuckPlatformer() {
           { x: 450, y: 180 }, // A - CORRECT (center middle)
           { x: 50, y: 200 }, // B - Wrong (far left)
           { x: 900, y: 80 }, // C - Wrong (far right)
-          { x: 250, y: 50 }, // D - Wrong (left top)
+          { x: 250, y: 50 }, // D - Wrong (far left top)
         ],
       }
     }
