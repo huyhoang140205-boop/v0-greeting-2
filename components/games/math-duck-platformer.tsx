@@ -29,7 +29,7 @@ interface AnswerTile extends MapObject {
 }
 
 interface GameMap {
-  duck: MapObject & { vx: number }
+  duck: MapObject & { vx: number; vy: number; onGround: boolean } // Added vy and onGround for jumping
   tiles: MapObject[]
   answerTiles: AnswerTile[]
   key: MapObject & { visible: boolean }
@@ -87,90 +87,92 @@ export default function MathDuckPlatformer() {
     {
       multiplier: 1,
       tiles: [
-        { x: 50, y: 420, width: 350, height: 40 },
-        { x: 300, y: 350, width: 120, height: 40 },
-        { x: 500, y: 280, width: 120, height: 40 },
-        { x: 700, y: 350, width: 120, height: 40 },
+        { x: 50, y: 400, width: 200, height: 30 }, // Repositioned all platforms within game area
+        { x: 300, y: 340, width: 120, height: 30 },
+        { x: 500, y: 300, width: 120, height: 30 },
+        { x: 700, y: 340, width: 120, height: 30 },
+        { x: 850, y: 420, width: 100, height: 30 },
       ],
-      answers: [{ x: 450, y: 200, width: 40, height: 40, value: 4, correct: true }],
-      doorX: 750,
-      doorY: 280,
+      answers: [{ x: 400, y: 220, width: 40, height: 40, value: 1, correct: true }],
+      doorX: 820,
+      doorY: 350,
     },
     {
       multiplier: 2,
       tiles: [
-        { x: 50, y: 420, width: 150, height: 40 },
-        { x: 300, y: 350, width: 120, height: 40 },
-        { x: 550, y: 280, width: 120, height: 40 },
-        { x: 800, y: 350, width: 120, height: 40 },
+        { x: 50, y: 400, width: 150, height: 30 },
+        { x: 250, y: 350, width: 120, height: 30 },
+        { x: 450, y: 300, width: 120, height: 30 },
+        { x: 650, y: 350, width: 120, height: 30 },
+        { x: 820, y: 420, width: 100, height: 30 },
       ],
       answers: [
-        { x: 600, y: 200, width: 40, height: 40, value: 6, correct: true },
-        { x: 200, y: 300, width: 40, height: 40, value: 2, correct: false },
-        { x: 900, y: 250, width: 40, height: 40, value: 3, correct: false },
+        { x: 500, y: 200, width: 40, height: 40, value: 6, correct: true },
+        { x: 150, y: 280, width: 40, height: 40, value: 2, correct: false },
+        { x: 750, y: 200, width: 40, height: 40, value: 3, correct: false },
       ],
-      doorX: 850,
-      doorY: 280,
+      doorX: 790,
+      doorY: 350,
     },
     {
       multiplier: 3,
       tiles: [
-        { x: 30, y: 420, width: 100, height: 40 },
-        { x: 150, y: 350, width: 120, height: 40 },
-        { x: 350, y: 280, width: 120, height: 40 },
-        { x: 550, y: 350, width: 120, height: 40 },
-        { x: 750, y: 280, width: 120, height: 40 },
-        { x: 900, y: 400, width: 120, height: 40 },
+        { x: 30, y: 400, width: 150, height: 30 },
+        { x: 200, y: 330, width: 120, height: 30 },
+        { x: 380, y: 270, width: 120, height: 30 },
+        { x: 560, y: 330, width: 120, height: 30 },
+        { x: 720, y: 270, width: 120, height: 30 },
+        { x: 820, y: 420, width: 100, height: 30 },
       ],
       answers: [
-        { x: 400, y: 180, width: 40, height: 40, value: 12, correct: true },
-        { x: 100, y: 300, width: 40, height: 40, value: 9, correct: false },
-        { x: 850, y: 320, width: 40, height: 40, value: 6, correct: false },
+        { x: 430, y: 140, width: 40, height: 40, value: 9, correct: true },
+        { x: 100, y: 280, width: 40, height: 40, value: 6, correct: false },
+        { x: 700, y: 160, width: 40, height: 40, value: 12, correct: false },
       ],
-      doorX: 900,
-      doorY: 340,
+      doorX: 790,
+      doorY: 350,
     },
     {
       multiplier: 4,
       tiles: [
-        { x: 50, y: 420, width: 150, height: 40 },
-        { x: 300, y: 380, width: 100, height: 40 },
-        { x: 500, y: 320, width: 100, height: 40 },
-        { x: 300, y: 260, width: 100, height: 40 },
-        { x: 600, y: 280, width: 100, height: 40 },
-        { x: 800, y: 340, width: 100, height: 40 },
-        { x: 900, y: 400, width: 100, height: 40 },
+        { x: 30, y: 400, width: 150, height: 30 },
+        { x: 250, y: 360, width: 100, height: 30 },
+        { x: 420, y: 300, width: 100, height: 30 },
+        { x: 250, y: 240, width: 100, height: 30 },
+        { x: 550, y: 280, width: 100, height: 30 },
+        { x: 700, y: 340, width: 100, height: 30 },
+        { x: 820, y: 420, width: 100, height: 30 },
       ],
       answers: [
-        { x: 450, y: 180, width: 40, height: 40, value: 32, correct: true },
-        { x: 200, y: 300, width: 40, height: 40, value: 8, correct: false },
-        { x: 750, y: 200, width: 40, height: 40, value: 5, correct: false },
-        { x: 850, y: 260, width: 40, height: 40, value: 2, correct: false },
+        { x: 470, y: 120, width: 40, height: 40, value: 16, correct: true },
+        { x: 150, y: 260, width: 40, height: 40, value: 8, correct: false },
+        { x: 650, y: 160, width: 40, height: 40, value: 5, correct: false },
+        { x: 750, y: 240, width: 40, height: 40, value: 2, correct: false },
       ],
-      doorX: 950,
-      doorY: 320,
+      doorX: 790,
+      doorY: 300,
     },
     {
       multiplier: 5,
       tiles: [
-        { x: 40, y: 420, width: 120, height: 40 },
-        { x: 250, y: 380, width: 100, height: 40 },
-        { x: 450, y: 320, width: 100, height: 40 },
-        { x: 650, y: 360, width: 100, height: 40 },
-        { x: 350, y: 280, width: 100, height: 40 },
-        { x: 600, y: 260, width: 100, height: 40 },
-        { x: 800, y: 300, width: 100, height: 40 },
-        { x: 900, y: 380, width: 100, height: 40 },
+        { x: 30, y: 400, width: 140, height: 30 },
+        { x: 220, y: 350, width: 100, height: 30 },
+        { x: 400, y: 290, width: 100, height: 30 },
+        { x: 580, y: 340, width: 100, height: 30 },
+        { x: 350, y: 240, width: 100, height: 30 },
+        { x: 550, y: 200, width: 100, height: 30 },
+        { x: 720, y: 280, width: 100, height: 30 },
+        { x: 820, y: 420, width: 100, height: 30 },
       ],
       answers: [
-        { x: 500, y: 140, width: 40, height: 40, value: 25, correct: true },
-        { x: 150, y: 280, width: 40, height: 40, value: 7, correct: false },
-        { x: 750, y: 200, width: 40, height: 40, value: 5, correct: false },
-        { x: 900, y: 240, width: 40, height: 40, value: 8, correct: false },
-        { x: 100, y: 380, width: 40, height: 40, value: 20, correct: false },
+        { x: 470, y: 80, width: 40, height: 40, value: 25, correct: true },
+        { x: 120, y: 260, width: 40, height: 40, value: 7, correct: false },
+        { x: 650, y: 120, width: 40, height: 40, value: 5, correct: false },
+        { x: 800, y: 160, width: 40, height: 40, value: 8, correct: false },
+        { x: 100, y: 350, width: 40, height: 40, value: 20, correct: false },
       ],
-      doorX: 950,
-      doorY: 320,
+      doorX: 790,
+      doorY: 280,
     },
   ]
 
@@ -179,11 +181,11 @@ export default function MathDuckPlatformer() {
     if (!levelConfig) return
 
     const gameMap: GameMap = {
-      duck: { x: 50, y: 380, width: 30, height: 30, vx: 0 },
-      tiles: levelConfig.tiles.map((t) => ({ ...t, picked: false })),
+      duck: { x: 50, y: 360, width: 30, height: 30, vx: 0, vy: 0, onGround: false }, // Added jump velocity
+      tiles: levelConfig.tiles,
       answerTiles: levelConfig.answers.map((a) => ({ ...a, picked: false })),
-      key: { x: 400, y: 100, width: 30, height: 30, visible: false },
-      door: { x: levelConfig.doorX, y: levelConfig.doorY, width: 50, height: 60, locked: true },
+      key: { x: 400, y: 50, width: 30, height: 30, visible: false },
+      door: { x: levelConfig.doorX, y: levelConfig.doorY - 50, width: 50, height: 60, locked: true },
       math: {
         a: levelConfig.multiplier,
         b: Math.floor(Math.random() * 10) + 1,
@@ -229,11 +231,37 @@ export default function MathDuckPlatformer() {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    const GRAVITY = 0.4
+    const JUMP_POWER = 12
+    const GROUND_Y = 420 // Platform base line
+
+    map.duck.vy += GRAVITY
+    map.duck.y += map.duck.vy
     map.duck.x += map.duck.vx
     map.duck.vx *= 0.85
 
+    map.duck.onGround = false
+    map.tiles.forEach((tile) => {
+      if (
+        map.duck.y + map.duck.height >= tile.y &&
+        map.duck.y + map.duck.height <= tile.y + tile.height + 5 &&
+        map.duck.x + map.duck.width > tile.x &&
+        map.duck.x < tile.x + tile.width &&
+        map.duck.vy >= 0
+      ) {
+        map.duck.y = tile.y - map.duck.height
+        map.duck.vy = 0
+        map.duck.onGround = true
+      }
+    })
+
     if (map.duck.x < 0) map.duck.x = 0
     if (map.duck.x + map.duck.width > canvas.width) map.duck.x = canvas.width - map.duck.width
+    if (map.duck.y > canvas.height) {
+      // Fall off - reset to start
+      map.duck.y = 360
+      map.duck.vy = 0
+    }
 
     map.answerTiles.forEach((tile) => {
       if (!tile.picked && collide(map.duck, tile)) {
@@ -293,7 +321,25 @@ export default function MathDuckPlatformer() {
     }
 
     ctx.fillStyle = "#87CEEB"
-    ctx.fillRect(0, 0, canvas.width, 150)
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // Simple cloud shapes
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)"
+    const clouds = [
+      { x: 100, y: 50, w: 80, h: 30 },
+      { x: 400, y: 80, w: 100, h: 40 },
+      { x: 700, y: 40, w: 90, h: 35 },
+    ]
+    clouds.forEach((c) => {
+      ctx.beginPath()
+      ctx.arc(c.x, c.y, 20, 0, Math.PI * 2)
+      ctx.arc(c.x + 30, c.y - 10, 25, 0, Math.PI * 2)
+      ctx.arc(c.x + 60, c.y, 20, 0, Math.PI * 2)
+      ctx.fill()
+    })
+
+    ctx.fillStyle = "#7FD700"
+    ctx.fillRect(0, canvas.height - 30, canvas.width, 30)
 
     map.tiles.forEach((tile) => {
       ctx.fillStyle = "#FF8C00"
@@ -302,6 +348,7 @@ export default function MathDuckPlatformer() {
       ctx.lineWidth = 2
       ctx.strokeRect(tile.x, tile.y, tile.width, tile.height)
 
+      // Grass on top of platform
       ctx.fillStyle = "#7FD700"
       for (let i = 0; i < tile.width; i += 10) {
         ctx.fillRect(tile.x + i, tile.y - 6, 8, 6)
@@ -314,6 +361,10 @@ export default function MathDuckPlatformer() {
       ctx.strokeStyle = "#000"
       ctx.lineWidth = 2
       ctx.strokeRect(tile.x, tile.y, tile.width, tile.height)
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)"
+      ctx.shadowBlur = 8
+      ctx.shadowOffsetX = 2
+      ctx.shadowOffsetY = 2
 
       ctx.fillStyle = "#000"
       ctx.font = "bold 24px Arial"
@@ -360,19 +411,18 @@ export default function MathDuckPlatformer() {
     ctx.fillText(charEmoji, map.duck.x + map.duck.width / 2, map.duck.y + map.duck.height / 2)
 
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)"
-    ctx.fillRect(10, 10, 320, 100)
+    ctx.fillRect(10, 10, 320, 120)
     ctx.strokeStyle = "#000"
     ctx.lineWidth = 2
-    ctx.strokeRect(10, 10, 320, 100)
+    ctx.strokeRect(10, 10, 320, 120)
 
     ctx.fillStyle = "#000"
     ctx.font = "bold 28px Arial"
     ctx.textAlign = "left"
     ctx.textBaseline = "top"
     ctx.fillText(`${map.math.a} × ${map.math.b} = ?`, 20, 20)
-
     ctx.font = "16px Arial"
-    ctx.fillText("(Chạm vào ô đáp án)", 20, 60)
+    ctx.fillText("Chạm vào ô số để trả lời", 20, 65)
   }
 
   useEffect(() => {
@@ -380,6 +430,12 @@ export default function MathDuckPlatformer() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.key.toLowerCase()] = true
+
+      const map = gameMapRef.current
+      if (map && (e.key.toLowerCase() === "w" || e.key === "ArrowUp" || e.key === " ") && map.onGround) {
+        map.vy = -12
+        map.onGround = false
+      }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
