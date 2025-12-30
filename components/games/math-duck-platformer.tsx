@@ -87,57 +87,64 @@ export default function MathDuckPlatformer() {
   const levelDataMap: Record<number, { platforms: MapObject[]; answerPositions: Array<{ x: number; y: number }> }> = {
     1: {
       platforms: [
-        { x: 50, y: 480, width: 120, height: 20 },
-        { x: 200, y: 420, width: 120, height: 20 },
-        { x: 350, y: 360, width: 120, height: 20 },
-        { x: 500, y: 300, width: 120, height: 20 },
-        { x: 650, y: 360, width: 120, height: 20 },
-        { x: 750, y: 480, width: 120, height: 20 },
+        { x: 30, y: 500, width: 140, height: 20 }, // Start
+        { x: 150, y: 450, width: 100, height: 20 },
+        { x: 250, y: 400, width: 100, height: 20 },
+        { x: 350, y: 350, width: 100, height: 20 },
+        { x: 450, y: 300, width: 100, height: 20 },
+        { x: 550, y: 350, width: 100, height: 20 },
+        { x: 650, y: 400, width: 100, height: 20 },
+        { x: 750, y: 450, width: 100, height: 20 },
+        { x: 800, y: 480, width: 140, height: 20 }, // Near door
       ],
       answerPositions: [
-        { x: 200, y: 360 },
-        { x: 350, y: 300 },
-        { x: 500, y: 240 },
-        { x: 650, y: 300 },
+        { x: 450, y: 250 }, // A - CORRECT (in middle path)
+        { x: 50, y: 300 }, // B - Wrong (far left)
+        { x: 800, y: 100 }, // C - Wrong (far right top)
+        { x: 300, y: 150 }, // D - Wrong (left top)
       ],
     },
     2: {
       platforms: [
-        { x: 50, y: 480, width: 120, height: 20 },
-        { x: 150, y: 420, width: 120, height: 20 },
-        { x: 250, y: 360, width: 120, height: 20 },
-        { x: 350, y: 300, width: 120, height: 20 },
-        { x: 450, y: 240, width: 120, height: 20 },
-        { x: 550, y: 300, width: 120, height: 20 },
-        { x: 650, y: 360, width: 120, height: 20 },
-        { x: 750, y: 420, width: 120, height: 20 },
+        { x: 30, y: 500, width: 140, height: 20 },
+        { x: 100, y: 450, width: 90, height: 20 },
+        { x: 170, y: 400, width: 90, height: 20 },
+        { x: 240, y: 350, width: 90, height: 20 },
+        { x: 310, y: 300, width: 90, height: 20 },
+        { x: 380, y: 250, width: 90, height: 20 },
+        { x: 450, y: 300, width: 90, height: 20 },
+        { x: 520, y: 350, width: 90, height: 20 },
+        { x: 590, y: 400, width: 90, height: 20 },
+        { x: 660, y: 450, width: 90, height: 20 },
+        { x: 800, y: 480, width: 140, height: 20 },
       ],
       answerPositions: [
-        { x: 150, y: 360 },
-        { x: 300, y: 280 },
-        { x: 500, y: 200 },
-        { x: 700, y: 280 },
+        { x: 380, y: 210 }, // A - CORRECT (at highest platform)
+        { x: 80, y: 200 }, // B - Wrong (far left)
+        { x: 700, y: 150 }, // C - Wrong (far right)
+        { x: 200, y: 100 }, // D - Wrong (left top)
       ],
     },
     3: {
       platforms: [
-        { x: 50, y: 480, width: 120, height: 20 },
-        { x: 120, y: 420, width: 100, height: 20 },
-        { x: 190, y: 360, width: 100, height: 20 },
-        { x: 260, y: 300, width: 100, height: 20 },
-        { x: 330, y: 240, width: 100, height: 20 },
-        { x: 400, y: 180, width: 100, height: 20 },
-        { x: 470, y: 240, width: 100, height: 20 },
-        { x: 540, y: 300, width: 100, height: 20 },
-        { x: 610, y: 360, width: 100, height: 20 },
-        { x: 680, y: 420, width: 100, height: 20 },
-        { x: 750, y: 480, width: 120, height: 20 },
+        { x: 30, y: 500, width: 140, height: 20 },
+        { x: 110, y: 460, width: 80, height: 20 },
+        { x: 180, y: 420, width: 80, height: 20 },
+        { x: 250, y: 380, width: 80, height: 20 },
+        { x: 320, y: 340, width: 80, height: 20 },
+        { x: 390, y: 300, width: 80, height: 20 },
+        { x: 460, y: 260, width: 80, height: 20 },
+        { x: 530, y: 300, width: 80, height: 20 },
+        { x: 600, y: 340, width: 80, height: 20 },
+        { x: 670, y: 380, width: 80, height: 20 },
+        { x: 740, y: 420, width: 80, height: 20 },
+        { x: 800, y: 480, width: 140, height: 20 },
       ],
       answerPositions: [
-        { x: 180, y: 320 },
-        { x: 330, y: 200 },
-        { x: 550, y: 260 },
-        { x: 720, y: 380 },
+        { x: 460, y: 220 }, // A - CORRECT (center peak)
+        { x: 100, y: 250 }, // B - Wrong (far left)
+        { x: 750, y: 100 }, // C - Wrong (far right)
+        { x: 50, y: 100 }, // D - Wrong (far left top)
       ],
     },
   }
@@ -145,19 +152,19 @@ export default function MathDuckPlatformer() {
   for (let i = 4; i <= 10; i++) {
     if (!levelDataMap[i]) {
       const startX = 50
-      const platformCount = 5 + i
+      const platformCount = 6 + i
       levelDataMap[i] = {
         platforms: Array.from({ length: platformCount }).map((_, idx) => ({
-          x: startX + (idx * 750) / platformCount,
-          y: 480 - (idx % 3) * 100,
-          width: 100,
+          x: startX + (idx * 700) / platformCount,
+          y: 500 - (idx % (Math.floor(platformCount / 3) + 1)) * 80,
+          width: 90,
           height: 20,
         })),
         answerPositions: [
-          { x: 200, y: 360 },
-          { x: 400, y: 280 },
-          { x: 600, y: 220 },
-          { x: 700, y: 340 },
+          { x: 350 + Math.random() * 50, y: 200 }, // A - CORRECT (center)
+          { x: 50, y: 150 + Math.random() * 100 }, // B - Wrong (left)
+          { x: 750, y: 100 + Math.random() * 150 }, // C - Wrong (right)
+          { x: 100, y: 50 + Math.random() * 100 }, // D - Wrong (left top)
         ],
       }
     }
@@ -478,6 +485,12 @@ export default function MathDuckPlatformer() {
     setGameState("PLAYING")
   }
 
+  const initializeGame = (level: number) => {
+    initGameMap(level)
+    setScore(0)
+    setTimeLeft(120)
+  }
+
   if (gameState === "MENU") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
@@ -684,7 +697,11 @@ export default function MathDuckPlatformer() {
 
             <div className="space-y-3">
               <Button
-                onClick={() => startGame()}
+                onClick={() => {
+                  setScore(0)
+                  setGameState("PLAYING")
+                  initializeGame(currentLevel)
+                }}
                 className="text-2xl px-8 py-6 w-full font-black bg-blue-500 hover:bg-blue-600 text-white border-4"
               >
                 🔄 CHƠI LẠI
