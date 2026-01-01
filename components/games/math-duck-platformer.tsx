@@ -76,12 +76,12 @@ interface PlayerState {
 }
 
 const CHARACTER_SHOP: Record<Character, { name: string; price: number; avatar: string; emoji: string }> = {
-  doremon: { name: "Doremon", price: 0, avatar: "/avatar/doremon.jpg", emoji: " doraemon" },
-  nobita: { name: "Nobita", price: 300, avatar: "/avatar/nobita.jpg", emoji: "🧑" },
-  chaien: { name: "Chaien", price: 300, avatar: "/avatar/chaien.jpg", emoji: "💪" },
-  shizuka: { name: "Shizuka", price: 500, avatar: "/avatar/shizuka.jpg", emoji: "🌸" },
-  goku: { name: "Goku", price: 800, avatar: "/avatar/goku.jpg", emoji: "💥" },
-  pikachu: { name: "Pikachu", price: 800, avatar: "/avatar/pikachu.jpg", emoji: "⚡" },
+  doremon: { name: "Doremon", price: 0, avatar: "/avarta/doremon.jpg", emoji: "/avarta/doremon.jpg" },
+  nobita: { name: "Nobita", price: 300, avatar: "/avarta/nobita.jpg", emoji: "/avarta/nobita.jpg" },
+  chaien: { name: "Chaien", price: 300, avatar: "/avarta/chaien.jpg", emoji: "/avarta/chaien.jpg" },
+  shizuka: { name: "Shizuka", price: 500, avatar: "/avarta/shizuka.jpg", emoji: "/avarta/shizuka.jpg" },
+  goku: { name: "Goku", price: 800, avatar: "/avarta/goku.jpg", emoji: "/avarta/goku.jpg" },
+  pikachu: { name: "Pikachu", price: 800, avatar: "/avarta/pikachu.jpg", emoji: "/avarta/pikachu.jpg" },
 }
 
 export default function MathDuckMaze() {
