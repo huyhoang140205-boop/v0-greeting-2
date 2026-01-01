@@ -22,10 +22,10 @@ export function GameHub() {
     // ⭐ GAME NỔI BẬT
     {
       id: "math-duck-platformer",
-      name: "🦆 Math Duck Platformer",
+      name: "🗺️ Game mê cung",
       description:
-        "Giúp vịt nhảy qua các nền tảng! Chạm các số theo đúng thứ tự để giải bài toán. Luyện cả kỹ năng nhảy lẫn toán học!",
-      icon: () => <span>🦆</span>,
+        "Vượt qua mê cung để dành chiến thằng nào!",
+      icon: () => <span>🗺️</span>,
       component: MathDuckPlatformer,
       featured: true,
       props: {
@@ -34,28 +34,11 @@ export function GameHub() {
       },
     },
     {
-      id: "times-table-duck",
-      name: "🦆 Times Table Duck (Grid)",
-      description:
-        "Điều khiển con vịt để chạm các ô phép nhân theo đúng thứ tự! Luyện bảng cửu chương nhanh chóng với timer 30 giây.",
-      icon: () => <span>🦆</span>,
-      component: TimesTableDuck,
-      props: {
-        gameId: "times-table-duck-1",
-        onGameComplete: (score: number) => console.log("Times Table Duck score:", score),
-      },
-    },
-    {
       id: "rabbit-math",
       name: "🐰 Rabbit Math",
       description: "Giải toán cùng chú thỏ nhí nhảnh.",
       icon: () => <span>🐰</span>,
       component: RabbitMathGame,
-      featured: true,
-      props: {
-        gameId: "rabbit-math-1",
-        onGameComplete: (score: number) => console.log("Rabbit Math score:", score),
-      },
     },
 
     // Các game thường
