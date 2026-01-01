@@ -589,46 +589,44 @@ export default function MathDuckMaze() {
     const num2 = Math.floor(Math.random() * 9) + 1
     const correctAnswer = num1 * num2
 
-    const wrongAnswers = new Set<number>()
-    while (wrongAnswers.size < 3) {
-      const wrong = correctAnswer + Math.floor(Math.random() * 20) - 10
-      if (wrong > 0 && wrong !== correctAnswer) {
-        wrongAnswers.add(wrong)
+    const optionsSet = new Set<number>()
+    optionsSet.add(correctAnswer)
+
+    // luôn có 4 lựa chọn: 1 đúng + 3 sai
+    while (optionsSet.size < 4) {
+      const offset = Math.floor(Math.random() * 5) + 1
+      const sign = Math.random() < 0.5 ? -1 : 1
+      const wrong = correctAnswer + sign * offset
+
+      if (wrong > 0) {
+        optionsSet.add(wrong)
       }
     }
-
-    const options = [correctAnswer, ...Array.from(wrongAnswers)].sort(() => Math.random() - 0.5)
 
     return {
       question: `${num1} × ${num2} = ?`,
       correctAnswer,
-      options,
+      options: Array.from(optionsSet).sort(() => Math.random() - 0.5),
     }
   }
 
   const generateAnswerTiles = (problem: MathProblem): AnswerTile[] => {
     const correctAnswer = problem.correctAnswer
-    const wrongAnswers = new Set<number>()
+    const answersSet = new Set<number>()
+    answersSet.add(correctAnswer)
 
-    // Generate 5-7 wrong answers
-    const numWrong = 5 + Math.floor(Math.random() * 3)
-    while (wrongAnswers.size < numWrong) {
-      const randType = Math.random()
-      let wrong: number
-      if (randType < 0.3) {
-        wrong = correctAnswer + (Math.floor(Math.random() * 10) + 1)
-      } else if (randType < 0.6) {
-        wrong = correctAnswer - (Math.floor(Math.random() * 10) + 1)
-      } else {
-        wrong = Math.floor(Math.random() * 81) + 1
-      }
+    // tổng số tile cố định: 5 (1 đúng + 4 sai)
+    while (answersSet.size < 5) {
+      const offset = Math.floor(Math.random() * 6) + 1
+      const sign = Math.random() < 0.5 ? -1 : 1
+      const wrong = correctAnswer + sign * offset
+
       if (wrong > 0 && wrong !== correctAnswer && wrong <= 100) {
-        wrongAnswers.add(wrong)
+        answersSet.add(wrong)
       }
     }
 
-    // Always include correct answer
-    const allAnswers = [correctAnswer, ...Array.from(wrongAnswers)]
+    const allAnswers = Array.from(answersSet)
 
     return allAnswers.map((value) => ({
       x: Math.floor(Math.random() * (1000 - 100)) + 50,
