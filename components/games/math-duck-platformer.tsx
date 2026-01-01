@@ -889,7 +889,8 @@ export default function MathDuckMaze() {
 
           const allSolved = map.mathProblems.every((p) => p.solved)
           if (allSolved && !map.key.visible && !map.key.collected) {
-            const keyPos = getRandomPosition(map.walls, [], map.player)
+            const keyPos = getRandomPosition(map.walls,map.answerTiles.filter(t => !t.picked),map.player)
+
             map.key.x = keyPos.x
             map.key.y = keyPos.y
             map.key.visible = true
