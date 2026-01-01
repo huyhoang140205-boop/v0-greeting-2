@@ -903,7 +903,9 @@ export default function MathDuckMaze() {
           map.player.vx = 0
           map.player.vy = 0
         }
-        tile.picked = true // Mark tile as picked regardless of correctness
+        if (matchingProblem && matchingProblem.correctAnswer === tile.value) {
+          tile.picked = true
+        }
       }
     })
 
