@@ -5,7 +5,8 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
-type GameState = "MENU" | "LEVEL_SELECT" | "PLAYING" | "WIN" | "SHOP" | "LOSE" | "paused" // Added "paused"
+
+type GameState = "MENU" | "LEVEL_SELECT" | "PLAYING" | "WIN" | "SHOP" | "LOSE" | "paused"
 type Character = "doremon" | "nobita" | "chaien" | "shizuka" | "goku" | "pikachu"
 
 interface MathProblem {
@@ -77,13 +78,14 @@ interface PlayerState {
 
 // --- CONSTANTS ---
 
+// YÊU CẦU 2: Giữ nguyên đường dẫn /avarta/
 const CHARACTER_SHOP: Record<Character, { name: string; price: number; avatar: string; emoji: string }> = {
-  doremon: { name: "Doremon", price: 0, avatar: "/avatar/doremon.jpg", emoji: "🐱" },
-  nobita: { name: "Nobita", price: 300, avatar: "/avatar/nobita.jpg", emoji: "🤓" },
-  chaien: { name: "Chaien", price: 300, avatar: "/avatar/chaien.jpg", emoji: "🎤" },
-  shizuka: { name: "Shizuka", price: 500, avatar: "/avatar/shizuka.jpg", emoji: "👧" },
-  goku: { name: "Goku", price: 800, avatar: "/avatar/goku.jpg", emoji: "🐉" },
-  pikachu: { name: "Pikachu", price: 800, avatar: "/avatar/pikachu.jpg", emoji: "⚡" },
+  doremon: { name: "Doremon", price: 0, avatar: "/avarta/doremon.jpg", emoji: "🐱" },
+  nobita: { name: "Nobita", price: 300, avatar: "/avarta/nobita.jpg", emoji: "🤓" },
+  chaien: { name: "Chaien", price: 300, avatar: "/avarta/chaien.jpg", emoji: "🎤" },
+  shizuka: { name: "Shizuka", price: 500, avatar: "/avarta/shizuka.jpg", emoji: "👧" },
+  goku: { name: "Goku", price: 800, avatar: "/avarta/goku.jpg", emoji: "🐉" },
+  pikachu: { name: "Pikachu", price: 800, avatar: "/avarta/pikachu.jpg", emoji: "⚡" },
 }
 
 const LEVELS = [
@@ -163,7 +165,7 @@ const LEVELS = [
       { x: 750, y: 380, reward: 60 },
     ],
   },
-  // Bạn có thể thêm các level 3-10 vào đây tương tự như logic trên
+  // Có thể thêm level 3-10 vào đây
 ]
 
 // --- MAIN COMPONENT ---
@@ -172,7 +174,6 @@ export default function MathDuckMaze() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<GameState>("MENU")
   
-  // Khởi tạo state với giá trị mặc định để tránh Hydration Mismatch
   const [playerState, setPlayerState] = useState<PlayerState>({
     coins: 0,
     unlockedCharacters: ["doremon"],
@@ -180,7 +181,6 @@ export default function MathDuckMaze() {
     completedLevels: [],
   })
 
-  // Load state từ localStorage sau khi mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("mathDuckPlayerState")
@@ -198,7 +198,6 @@ export default function MathDuckMaze() {
     }
   }, [])
 
-  // Lưu state khi thay đổi
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("mathDuckPlayerState", JSON.stringify(playerState))
@@ -220,14 +219,12 @@ export default function MathDuckMaze() {
 
   const [characterImages, setCharacterImages] = useState<Record<string, HTMLImageElement>>({})
 
-  // Load ảnh
   useEffect(() => {
     const images: Record<string, HTMLImageElement> = {}
     Object.entries(CHARACTER_SHOP).forEach(([id, char]) => {
       const img = new Image()
       img.src = char.avatar
-      // Nếu lỗi thì dùng placeholder hoặc bỏ qua
-      img.onerror = () => { console.warn(`Could not load image for ${char.name}`); }
+      img.onerror = () => { console.warn(`Could not load image for ${char.name} at ${char.avatar}`); }
       images[id] = img
     })
     setCharacterImages(images)
@@ -250,6 +247,7 @@ export default function MathDuckMaze() {
     return { question: `${num1} × ${num2} = ?`, correctAnswer, options }
   }
 
+  // Hàm random vị trí, nhận vào danh sách các vị trí đã dùng (usedPositions) để tránh trùng
   const getRandomPosition = (
     walls: MapObject[],
     usedPositions: { x: number; y: number }[],
@@ -261,8 +259,10 @@ export default function MathDuckMaze() {
       const y = 100 + Math.floor(Math.random() * 350)
       let valid = true
 
+      // Tránh vị trí người chơi
       if (Math.abs(x - playerStart.x) < 80 && Math.abs(y - playerStart.y) < 80) valid = false
 
+      // Tránh tường
       for (const wall of walls) {
         if (x < wall.x + wall.width + 50 && x + 40 > wall.x - 50 && y < wall.y + wall.height + 50 && y + 40 > wall.y - 50) {
           valid = false
@@ -270,6 +270,7 @@ export default function MathDuckMaze() {
         }
       }
 
+      // Tránh các vật thể khác (đáp án, rương, v.v...)
       if (valid) {
         for (const pos of usedPositions) {
           if (Math.abs(x - pos.x) < 90 && Math.abs(y - pos.y) < 90) {
@@ -287,6 +288,7 @@ export default function MathDuckMaze() {
     const levelConfig = LEVELS.find((lvl) => lvl.id === levelNum)
     if (!levelConfig) return
 
+    // Tạo câu hỏi
     const mathProblems: MathProblem[] = levelConfig.multipliers.map((mult, idx) => {
       const b = Math.floor(Math.random() * 10) + 1
       return {
@@ -301,58 +303,56 @@ export default function MathDuckMaze() {
 
     const answerTiles: AnswerTile[] = []
     const usedPositions: { x: number; y: number }[] = []
-    const allAnswerValues = new Set<number>()
-
-    mathProblems.forEach((problem) => allAnswerValues.add(problem.correctAnswer))
-
-    mathProblems.forEach((problem) => {
-      let wrongCount = 0
-      let attempts = 0
-      while (wrongCount < 2 && attempts < 20) {
-        const offset = Math.floor(Math.random() * 10) + 1
-        const wrongValue = Math.random() > 0.5 ? problem.correctAnswer + offset : Math.max(1, problem.correctAnswer - offset)
-        if (!allAnswerValues.has(wrongValue) && wrongValue > 0 && wrongValue <= 144) {
-          allAnswerValues.add(wrongValue)
-          wrongCount++
-        }
-        attempts++
-      }
-    })
-
-    Array.from(allAnswerValues).forEach((value, idx) => {
+    
+    // YÊU CẦU 1: Đảm bảo hiển thị ĐỦ đáp án đúng cho MỌI câu hỏi
+    // Bước 1: Tạo ít nhất 1 ô đáp án đúng cho mỗi câu hỏi
+    mathProblems.forEach((problem, idx) => {
       const pos = getRandomPosition(levelConfig.walls, usedPositions, levelConfig.playerStart)
       usedPositions.push(pos)
+      
       answerTiles.push({
         x: pos.x,
         y: pos.y,
         width: 40,
         height: 40,
-        id: `answer-${idx}`,
-        value: value,
+        id: `answer-correct-${idx}`,
+        value: problem.correctAnswer, // Giá trị đúng
         picked: false,
-        pulseTime: 0,
-        problemId: "",
+        pulseTime: Math.random() * 100,
+        problemId: problem.id, // Gán thẳng ID câu hỏi vào
       })
     })
 
-    const availableTiles = [...answerTiles]
-    mathProblems.forEach((problem) => {
-      const correctTileIndex = availableTiles.findIndex((tile) => tile.value === problem.correctAnswer)
-      if (correctTileIndex !== -1) {
-        const correctTile = availableTiles.splice(correctTileIndex, 1)[0]
-        correctTile.problemId = problem.id
-        const realTile = answerTiles.find((t) => t.id === correctTile.id)
-        if (realTile) realTile.problemId = problem.id
-      }
-      const wrongTilesToAssign = Math.min(2, availableTiles.length)
-      for (let i = 0; i < wrongTilesToAssign; i++) {
-        const wrongTile = availableTiles.pop()
-        if (wrongTile) {
-          const realTile = answerTiles.find((t) => t.id === wrongTile.id)
-          if (realTile) realTile.problemId = problem.id
+    // Bước 2: Tạo thêm các ô đáp án sai (nhiễu) để làm đầy bản đồ
+    const allCorrectValues = new Set(mathProblems.map(p => p.correctAnswer))
+    const numWrongTiles = 6 // Số lượng đáp án sai muốn thêm
+    
+    for (let i = 0; i < numWrongTiles; i++) {
+        let wrongValue = 0;
+        let attempts = 0;
+        // Random giá trị sai không trùng với đáp án đúng
+        while ((wrongValue === 0 || allCorrectValues.has(wrongValue)) && attempts < 20) {
+            const randomBase = Array.from(allCorrectValues)[Math.floor(Math.random() * allCorrectValues.size)]
+            const offset = Math.floor(Math.random() * 10) + 1
+            wrongValue = Math.random() > 0.5 ? randomBase + offset : Math.max(1, randomBase - offset)
+            attempts++
         }
-      }
-    })
+
+        const pos = getRandomPosition(levelConfig.walls, usedPositions, levelConfig.playerStart)
+        usedPositions.push(pos)
+        
+        answerTiles.push({
+            x: pos.x,
+            y: pos.y,
+            width: 40,
+            height: 40,
+            id: `answer-wrong-${i}`,
+            value: wrongValue,
+            picked: false,
+            pulseTime: Math.random() * 100,
+            problemId: "wrong", // Đánh dấu là sai
+        })
+    }
 
     const treasures: Treasure[] = levelConfig.treasures.map((t) => ({
       x: t.x,
@@ -420,19 +420,31 @@ export default function MathDuckMaze() {
 
     map.answerTiles.forEach((tile) => {
       if (!tile.picked && collide(map.player, tile)) {
+        // Kiểm tra xem tile này có phải đáp án của câu hỏi CHƯA GIẢI nào không
         const matchingProblem = map.mathProblems.find((p) => !p.solved && p.id === tile.problemId)
-        if (matchingProblem && matchingProblem.correctAnswer === tile.value) {
+        
+        if (matchingProblem) {
+          // Đúng đáp án
           matchingProblem.solved = true
           setScore((prev) => prev + 100)
           map.flashEffect = { active: true, color: "rgba(0, 255, 0, 0.3)", time: 0 }
+          
           const allSolved = map.mathProblems.every((p) => p.solved)
           if (allSolved && !map.key.visible && !map.key.collected) {
-            const keyPos = getRandomPosition(map.walls, [], map.player)
+            // YÊU CẦU 3: Chìa khóa không trùng đáp án
+            // Lấy danh sách vị trí các tile còn lại trên bản đồ để tránh
+            const obstaclePositions = map.answerTiles
+                .filter(t => !t.picked)
+                .map(t => ({ x: t.x, y: t.y }))
+            
+            // Random vị trí chìa khóa tránh tường và các tile còn lại
+            const keyPos = getRandomPosition(map.walls, obstaclePositions, map.player)
             map.key.x = keyPos.x
             map.key.y = keyPos.y
             map.key.visible = true
           }
         } else {
+          // Sai đáp án (hoặc tile sai, hoặc tile của câu hỏi đã giải rồi)
           map.flashEffect = { active: true, color: "rgba(255, 0, 0, 0.3)", time: 0 }
           map.player.x = map.player.spawnX
           map.player.y = map.player.spawnY
@@ -520,7 +532,6 @@ export default function MathDuckMaze() {
     ctx.shadowBlur = 8; ctx.shadowColor = "rgba(0, 0, 0, 0.5)"; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3
     map.walls.forEach((wall) => {
       const wallGradient = ctx.createLinearGradient(wall.x, wall.y, wall.x, wall.y + wall.height)
-      // (Giữ logic màu wall cũ nhưng rút gọn lại nếu cần)
       wallGradient.addColorStop(0, "#8B4513"); wallGradient.addColorStop(1, "#5D4037")
       
       ctx.fillStyle = wallGradient
@@ -603,7 +614,6 @@ export default function MathDuckMaze() {
       if (img && img.complete && img.naturalWidth !== 0) {
         ctx.drawImage(img, map.player.x, map.player.y, map.player.width, map.player.height)
       } else {
-        // Fallback if image missing
         ctx.fillStyle = "blue"; ctx.fillRect(map.player.x, map.player.y, map.player.width, map.player.height)
       }
       ctx.restore()
@@ -636,7 +646,7 @@ export default function MathDuckMaze() {
     // Coins
     ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.beginPath(); if('roundRect' in ctx) ctx.roundRect(canvas.width - 160, 85, 150, 40, 10); else ctx.rect(canvas.width - 160, 85, 150, 40); ctx.fill()
     ctx.fillStyle = "#FFD700"; ctx.font = "bold 24px Arial"; ctx.textAlign = "center"
-    ctx.fillText(`💰 ${playerState.coins}`, canvas.width - 85, 105 + 8) // +8 for better centering
+    ctx.fillText(`💰 ${playerState.coins}`, canvas.width - 85, 105 + 8)
   }
 
   useEffect(() => {
@@ -671,9 +681,13 @@ export default function MathDuckMaze() {
     return () => clearInterval(interval)
   }, [gameState, score, playerState.coins, soundEnabled, playerState.currentCharacter])
 
-  // Timer
+  // YÊU CẦU 4: Logic đồng hồ đếm ngược
   useEffect(() => {
-    if (gameState !== "PLAYING") return
+    if (gameState !== "PLAYING" && gameState !== "paused") return // Dừng đếm khi pause (trả lời câu hỏi bonus)
+    
+    // Nếu đang trả lời câu hỏi bonus (paused) thì không trừ giờ
+    if (gameState === "paused") return;
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
