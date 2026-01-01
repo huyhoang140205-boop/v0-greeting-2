@@ -75,15 +75,47 @@ interface PlayerState {
   completedLevels: number[]
 }
 
-const CHARACTER_SHOP: Record<Character, { name: string; price: number; avatar: string; emoji: string }> = {
-  doremon: { name: "Doremon", price: 0, avatar: "/avarta/doremon.jpg", emoji: "/avarta/doremon.jpg" },
-  nobita: { name: "Nobita", price: 300, avatar: "/avarta/nobita.jpg", emoji: "/avarta/nobita.jpg" },
-  chaien: { name: "Chaien", price: 300, avatar: "/avarta/chaien.jpg", emoji: "/avarta/chaien.jpg" },
-  shizuka: { name: "Shizuka", price: 500, avatar: "/avarta/shizuka.jpg", emoji: "/avarta/shizuka.jpg" },
-  goku: { name: "Goku", price: 800, avatar: "/avarta/goku.jpg", emoji: "/avarta/goku.jpg" },
-  pikachu: { name: "Pikachu", price: 800, avatar: "/avarta/pikachu.jpg", emoji: "/avarta/pikachu.jpg" },
+const CHARACTER_SHOP: Record<
+  Character,
+  { name: string; price: number; avatar: string; emoji: string }
+> = {
+  doremon: {
+    name: "Doremon",
+    price: 0,
+    avatar: "/avarta/doremon.jpg",
+    emoji: "/avarta/doremon.png", // emoji = ảnh nhỏ
+  },
+  nobita: {
+    name: "Nobita",
+    price: 300,
+    avatar: "/avarta/nobita.jpg",
+    emoji: "/avarta/nobita.png",
+  },
+  chaien: {
+    name: "Chaien",
+    price: 300,
+    avatar: "/avarta/chaien.jpg",
+    emoji: "/avarta/chaien.png",
+  },
+  shizuka: {
+    name: "Shizuka",
+    price: 500,
+    avatar: "/avarta/shizuka.jpg",
+    emoji: "/avarta/shizuka.png",
+  },
+  goku: {
+    name: "Goku",
+    price: 800,
+    avatar: "/avarta/goku.jpg",
+    emoji: "/avarta/goku.png",
+  },
+  pikachu: {
+    name: "Pikachu",
+    price: 800,
+    avatar: "/avarta/pikachu.jpg",
+    emoji: "/avarta/pikachu.png",
+  },
 }
-
 export default function MathDuckMaze() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<GameState>("MENU")
