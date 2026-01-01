@@ -1310,7 +1310,7 @@ export default function MathDuckMaze() {
     const buttons = [
       { icon: "💾", x: canvas.width - 160 },
       { icon: soundEnabled ? "🔊" : "🔇", x: canvas.width - 160 + buttonSize + buttonSpacing },
-      { icon: "✖", x: canvas.width - 160 + 2 * (buttonSize + buttonSpacing) },
+      { icon: "✖", x: canvas.width - 170 + 2 * (btnSize + spacing), color: "#F44336" },
     ]
 
     buttons.forEach((btn) => {
