@@ -642,35 +642,65 @@ export default function MathDuckMaze() {
     }
   }
 
-  const generateAnswerTiles = (problem: MathProblem): AnswerTile[] => {
+  const generateAnswerTiles = (
+    problem: MathProblem,
+    existingTiles: AnswerTile[] = []
+  ): AnswerTile[] => {
     const correctAnswer = problem.correctAnswer
-    const answersSet = new Set<number>()
-    answersSet.add(correctAnswer)
+    const answers = new Set<number>()
+    answers.add(correctAnswer)
 
-    // tổng số tile cố định: 5 (1 đúng + 4 sai)
-    while (answersSet.size < 5) {
+    // 1 đúng + 4 sai
+    while (answers.size < 5) {
       const offset = Math.floor(Math.random() * 6) + 1
       const sign = Math.random() < 0.5 ? -1 : 1
       const wrong = correctAnswer + sign * offset
 
       if (wrong > 0 && wrong !== correctAnswer && wrong <= 100) {
-        answersSet.add(wrong)
+        answers.add(wrong)
       }
     }
 
-    const allAnswers = Array.from(answersSet)
+    const result: AnswerTile[] = []
 
-    return allAnswers.map((value) => ({
-      x: Math.floor(Math.random() * (1000 - 100)) + 50,
-      y: Math.floor(Math.random() * (600 - 100)) + 50,
-      value,
-      width: 40,
-      height: 40,
-      picked: false,
-      pulseTime: Math.random() * 100,
-      problemId: problem.id,
-    }))
+    const getFreePosition = () => {
+      let x = 0
+      let y = 0
+      let safe = false
+
+      while (!safe) {
+        safe = true
+        x = Math.floor(Math.random() * (1000 - 100)) + 50
+        y = Math.floor(Math.random() * (600 - 100)) + 50
+
+        for (const t of [...existingTiles, ...result]) {
+          if (Math.abs(t.x - x) < 50 && Math.abs(t.y - y) < 50) {
+            safe = false
+            break
+          }
+        }
+      }
+
+      return { x, y }
+    }
+
+    for (const value of answers) {
+      const pos = getFreePosition()
+      result.push({
+        x: pos.x,
+        y: pos.y,
+        value,
+        width: 40,
+        height: 40,
+        picked: false,
+        pulseTime: Math.random() * 100,
+        problemId: problem.id,
+      })
+    }
+
+    return result
   }
+
 
   const initGameMap = (levelNum: number) => {
     const levelConfig = LEVELS.find((lvl) => lvl.id === levelNum)
