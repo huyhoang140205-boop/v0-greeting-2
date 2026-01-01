@@ -1303,31 +1303,40 @@ export default function MathDuckMaze() {
     ctx.textAlign = "center"
     ctx.fillText(timeString, canvas.width - 80, canvas.height - 40)
 
-    const buttonSize = 45
-    const buttonY = 20
-    const buttonSpacing = 12
+// --- Tìm đoạn này trong hàm renderGameMap ---
+
+// Định nghĩa các nút
+    const btnSize = 45; 
+    const btnY = 20; 
+    const spacing = 15;
 
     const buttons = [
-      { icon: "💾", x: canvas.width - 160 },
-      { icon: soundEnabled ? "🔊" : "🔇", x: canvas.width - 160 + buttonSize + buttonSpacing },
-      { icon: "✖", x: canvas.width - 170 + 2 * (btnSize + spacing), color: "#F44336" },
-    ]
+      { icon: "💾", x: canvas.width - 170, color: "#4CAF50" }, // Màu xanh lá cho Lưu
+      { icon: soundEnabled ? "🔊" : "🔇", x: canvas.width - 170 + btnSize + spacing, color: "#2196F3" }, // Màu xanh dương cho Loa
+      { icon: "✖", x: canvas.width - 170 + 2 * (btnSize + spacing), color: "#F44336" }, // ĐÃ ĐỔI THÀNH MÀU ĐỎ (Red)
+    ];
 
+    // Vẽ các nút
     buttons.forEach((btn) => {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.95)"
-      ctx.beginPath()
-      ctx.roundRect(btn.x, buttonY, buttonSize, buttonSize, 10)
-      ctx.fill()
+      // Vẽ đổ bóng/viền cho nút
+      ctx.fillStyle = btn.color;
+      ctx.beginPath();
+      ctx.roundRect(btn.x, btn.y || btnY, btnSize, btnSize, 10);
+      ctx.fill();
 
-      ctx.strokeStyle = "#333"
-      ctx.lineWidth = 3
-      ctx.stroke()
+      // Thêm hiệu ứng bóng gương phía trên nút cho đẹp
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      ctx.beginPath();
+      ctx.roundRect(btn.x, btn.y || btnY, btnSize, btnSize / 2, 10);
+      ctx.fill();
 
-      ctx.font = "28px Arial"
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
-      ctx.fillText(btn.icon, btn.x + buttonSize / 2, buttonY + buttonSize / 2)
-    })
+      // Vẽ biểu tượng (Icon)
+      ctx.fillStyle = "#FFF";
+      ctx.font = "24px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(btn.icon, btn.x + btnSize / 2, (btn.y || btnY) + btnSize / 2 + 2);
+    });
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.75)"
     ctx.beginPath()
