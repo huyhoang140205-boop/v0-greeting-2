@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Play, ChevronLeft, ChevronRight, X, RotateCcw } from "lucide-react"
+import { Sparkles, Play, ChevronLeft, ChevronRight, X, RotateCcw, Lightbulb, GraduationCap } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 
@@ -43,13 +43,38 @@ const AVATAR_MAP: Record<string, string> = {
   "5": "/avarta/shizuka.jpg",
 }
 
-const GRADIENT_COLORS = [
-  "from-blue-400 to-purple-500",
-  "from-pink-400 to-red-500",
-  "from-yellow-400 to-orange-500",
-  "from-green-400 to-emerald-500",
-  "from-indigo-400 to-blue-500",
-  "from-rose-400 to-pink-500",
+// Bộ Theme màu sắc cao cấp hơn
+const THEMES = [
+  {
+    gradient: "bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-600",
+    shadow: "shadow-indigo-500/50",
+    iconColor: "text-indigo-200",
+    accent: "border-indigo-400/30"
+  },
+  {
+    gradient: "bg-gradient-to-br from-rose-500 via-pink-600 to-fuchsia-600",
+    shadow: "shadow-pink-500/50",
+    iconColor: "text-pink-200",
+    accent: "border-pink-400/30"
+  },
+  {
+    gradient: "bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600",
+    shadow: "shadow-teal-500/50",
+    iconColor: "text-teal-200",
+    accent: "border-teal-400/30"
+  },
+  {
+    gradient: "bg-gradient-to-br from-amber-500 via-orange-600 to-red-600",
+    shadow: "shadow-orange-500/50",
+    iconColor: "text-orange-200",
+    accent: "border-orange-400/30"
+  },
+  {
+    gradient: "bg-gradient-to-br from-blue-500 via-sky-600 to-azure-600",
+    shadow: "shadow-blue-500/50",
+    iconColor: "text-blue-200",
+    accent: "border-blue-400/30"
+  }
 ]
 
 export default function StudentFlashcards({ userId }: StudentFlashcardsProps) {
@@ -68,7 +93,7 @@ export default function StudentFlashcards({ userId }: StudentFlashcardsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showForm, setShowForm] = useState(false)
 
-  // Study Mode State (NEW)
+  // Study Mode State
   const [studySession, setStudySession] = useState<StudySession>({
     isActive: false,
     deckName: "",
@@ -99,7 +124,6 @@ export default function StudentFlashcards({ userId }: StudentFlashcardsProps) {
 
       setClasses(classesData || [])
 
-      // Fetch ALL relevant flashcards once
       let query = supabase.from("flashcards").select("*").order("created_at", { ascending: false })
 
       if (classIds.length > 0) {
@@ -172,7 +196,7 @@ export default function StudentFlashcards({ userId }: StudentFlashcardsProps) {
 
   // --- COMPONENTS CON ---
 
-  // 1. Component hiển thị 1 Lớp (Deck Card) ở màn hình chính
+  // 1. Deck Card ở màn hình chính
   const DeckCard = ({
     title,
     count,
@@ -186,214 +210,263 @@ export default function StudentFlashcards({ userId }: StudentFlashcardsProps) {
     colorIndex: number
     onClick: () => void
   }) => {
-    const gradient = GRADIENT_COLORS[colorIndex % GRADIENT_COLORS.length]
+    const theme = THEMES[colorIndex % THEMES.length]
 
     return (
       <div
         onClick={onClick}
-        className="group relative h-64 w-full cursor-pointer transition-all duration-300 hover:-translate-y-2"
+        className="group relative h-72 w-full cursor-pointer transition-all duration-300 hover:-translate-y-2"
       >
-        {/* Stack effect layers */}
-        <div className={`absolute top-0 left-0 w-full h-full rounded-2xl bg-gradient-to-br ${gradient} opacity-40 transform translate-x-2 translate-y-2`} />
-        <div className={`absolute top-0 left-0 w-full h-full rounded-2xl bg-gradient-to-br ${gradient} opacity-70 transform translate-x-1 translate-y-1`} />
+        {/* Layer hiệu ứng xếp chồng */}
+        <div className={`absolute top-0 left-0 w-full h-full rounded-3xl ${theme.gradient} opacity-30 transform translate-x-3 translate-y-3 blur-sm`} />
         
-        {/* Main Card */}
-        <div className={`relative w-full h-full rounded-2xl bg-white border-2 border-gray-100 shadow-xl p-6 flex flex-col items-center justify-between overflow-hidden group-hover:border-purple-300`}>
-             {/* Background decoration */}
-            <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`} />
+        {/* Thẻ chính */}
+        <div className={`relative w-full h-full rounded-3xl bg-white border border-gray-100 p-6 flex flex-col items-center justify-between overflow-hidden shadow-xl group-hover:shadow-2xl transition-shadow`}>
             
-            {/* Avatar & Icon */}
-            <div className="z-10 mt-2">
+            {/* Background trang trí mờ */}
+            <div className={`absolute -top-16 -right-16 w-48 h-48 rounded-full ${theme.gradient} opacity-10 group-hover:opacity-20 transition-opacity duration-500`} />
+            <div className={`absolute bottom-0 left-0 w-full h-2 ${theme.gradient}`} />
+            
+            {/* Avatar / Icon */}
+            <div className="z-10 mt-4 relative">
+                <div className={`absolute inset-0 rounded-full ${theme.gradient} blur-md opacity-40 animate-pulse`}></div>
                 {avatarUrl ? (
-                    <img src={avatarUrl} alt="icon" className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover" />
+                    <img src={avatarUrl} alt="icon" className="relative w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover" />
                 ) : (
-                    <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-4xl text-white shadow-md border-4 border-white`}>
+                    <div className={`relative w-24 h-24 rounded-full ${theme.gradient} flex items-center justify-center text-4xl text-white shadow-lg border-4 border-white`}>
                         📚
                     </div>
                 )}
             </div>
 
-            {/* Content */}
-            <div className="text-center z-10">
-                <h3 className="text-xl font-bold text-gray-800 line-clamp-1">{title}</h3>
-                <p className="text-gray-500 font-medium">{count} thẻ</p>
+            {/* Nội dung text */}
+            <div className="text-center z-10 w-full px-2">
+                <h3 className="text-2xl font-extrabold text-gray-800 line-clamp-1 mb-1">{title}</h3>
+                <div className="flex items-center justify-center gap-2 text-gray-500 font-medium bg-gray-50 py-1 px-3 rounded-full mx-auto w-fit">
+                    <GraduationCap className="w-4 h-4" />
+                    {count} thẻ
+                </div>
             </div>
 
-            <Button className={`w-full bg-gradient-to-r ${gradient} text-white font-bold rounded-xl shadow-md opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0`}>
-                <Play className="w-4 h-4 mr-2" fill="currentColor" /> Bắt đầu học
+            {/* Nút Action */}
+            <Button className={`w-full ${theme.gradient} text-white font-bold rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0`}>
+                <Play className="w-5 h-5 mr-2 fill-current" /> Bắt đầu học
             </Button>
         </div>
       </div>
     )
   }
 
-  // 2. Component hiển thị Flashcard đang học (Study View)
+  // 2. Study View (Màn hình học) - ĐÃ ĐƯỢC NÂNG CẤP VISUAL
   const StudyView = () => {
     const currentCard = studySession.cards[currentIndex]
     const progress = ((currentIndex + 1) / studySession.cards.length) * 100
-    const gradientClass = GRADIENT_COLORS[currentIndex % GRADIENT_COLORS.length]
+    // Lấy theme dựa trên index để mỗi thẻ có màu khác nhau một chút
+    const theme = THEMES[currentIndex % THEMES.length]
 
     return (
-      <div className="fixed inset-0 z-50 bg-gray-900/95 flex flex-col items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4">
+        
+        {/* Background mờ đằng sau (Backdrop) */}
+        <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-md z-0" onClick={exitStudy}></div>
+
         {/* Header Bar */}
-        <div className="absolute top-0 left-0 w-full p-4 flex items-center justify-between text-white z-10">
-            <div className="flex items-center gap-4">
-                 <Button variant="ghost" onClick={exitStudy} className="text-white hover:bg-white/20 rounded-full p-2">
-                    <X className="w-6 h-6" />
+        <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between text-white z-10 pointer-events-none">
+            <div className="flex items-center gap-4 pointer-events-auto">
+                 <Button variant="ghost" onClick={exitStudy} className="text-white hover:bg-white/10 rounded-full w-12 h-12 p-0 transition-colors">
+                    <X className="w-8 h-8" />
                  </Button>
                  <div>
-                     <h2 className="text-xl font-bold">{studySession.deckName}</h2>
-                     <p className="text-sm opacity-80">Thẻ {currentIndex + 1} / {studySession.cards.length}</p>
+                     <h2 className="text-2xl font-bold tracking-tight">{studySession.deckName}</h2>
+                     <p className="text-base text-white/70 font-medium">Thẻ {currentIndex + 1} / {studySession.cards.length}</p>
                  </div>
             </div>
-            <div className="w-1/3 md:w-1/4">
-                <Progress value={progress} className="h-2 bg-gray-700" />
+            <div className="w-1/3 md:w-1/4 pointer-events-auto">
+                <Progress value={progress} className="h-3 bg-white/20" indicatorClassName={theme.gradient} />
             </div>
         </div>
 
-        {/* Main Flashcard Interaction Area */}
-        <div className="flex items-center gap-4 md:gap-8 w-full max-w-5xl justify-center">
-            {/* Prev Button */}
+        {/* Khu vực thẻ chính */}
+        <div className="flex items-center gap-6 md:gap-12 w-full max-w-7xl justify-center z-10 h-full max-h-[85vh] mt-16">
+            
+            {/* Nút Prev (Desktop) */}
             <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="icon" 
                 onClick={prevCard} 
                 disabled={currentIndex === 0}
-                className="hidden md:flex w-12 h-12 rounded-full border-2 border-white/20 bg-transparent text-white hover:bg-white/20 hover:text-white disabled:opacity-30"
+                className="hidden md:flex w-16 h-16 rounded-full border-2 border-white/10 bg-white/5 text-white hover:bg-white/20 hover:scale-110 transition-all disabled:opacity-0"
             >
-                <ChevronLeft className="w-8 h-8" />
+                <ChevronLeft className="w-10 h-10" />
             </Button>
 
-            {/* THE CARD */}
+            {/* THE CARD CONTAINER */}
             <div 
-                className="perspective-1000 w-full max-w-md md:max-w-xl h-[500px] cursor-pointer"
+                className="perspective-1000 w-full max-w-3xl aspect-[4/3] md:aspect-[16/10] cursor-pointer group"
                 onClick={() => setIsCardFlipped(!isCardFlipped)}
             >
                 <div 
-                    className="relative w-full h-full transition-transform duration-500 ease-out"
+                    className="relative w-full h-full transition-transform duration-700 ease-in-out-back"
                     style={{ 
                         transformStyle: "preserve-3d",
                         transform: isCardFlipped ? "rotateY(180deg)" : "rotateY(0deg)"
                     }}
                 >
-                     {/* FRONT */}
+                     {/* === FRONT (CÂU HỎI) === */}
                      <div 
-                        className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${gradientClass} flex flex-col items-center justify-center p-8 shadow-2xl border-4 border-white/20`}
+                        className={`absolute inset-0 rounded-[2.5rem] ${theme.gradient} flex flex-col items-center justify-center p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${theme.shadow} border-4 border-white/20`}
                         style={{ backfaceVisibility: "hidden" }}
                     >
-                        <span className="absolute top-6 left-6 text-white/40 text-sm font-bold tracking-widest uppercase">Câu hỏi</span>
-                        <h3 className="text-3xl md:text-5xl font-bold text-white text-center leading-tight drop-shadow-md">
-                            {currentCard.question}
-                        </h3>
-                        <p className="absolute bottom-8 text-white/60 text-sm animate-bounce">Chạm để lật</p>
+                        {/* Họa tiết trang trí chìm */}
+                        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black opacity-10 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+
+                        {/* Nhãn "Câu hỏi" */}
+                        <div className="absolute top-10 left-10 bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30">
+                            <span className="text-white font-bold tracking-widest uppercase text-sm flex items-center gap-2">
+                                <Lightbulb className="w-4 h-4" /> Câu hỏi
+                            </span>
+                        </div>
+
+                        {/* Nội dung câu hỏi (TO & ĐẸP) */}
+                        <div className="relative z-10 w-full text-center flex items-center justify-center h-full">
+                            <h3 className="text-4xl md:text-6xl font-black text-white leading-tight drop-shadow-lg select-none">
+                                {currentCard.question}
+                            </h3>
+                        </div>
+
+                        {/* Chỉ dẫn lật thẻ */}
+                        <div className="absolute bottom-8 text-white/80 text-lg font-medium animate-bounce flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full backdrop-blur-sm">
+                            <RotateCcw className="w-5 h-5" /> Chạm để xem đáp án
+                        </div>
                      </div>
 
-                     {/* BACK */}
+                     {/* === BACK (ĐÁP ÁN) === */}
                      <div 
-                        className="absolute inset-0 rounded-3xl bg-white flex flex-col items-center justify-center p-8 shadow-2xl border-4 border-gray-200"
+                        className="absolute inset-0 rounded-[2.5rem] bg-white flex flex-col items-center justify-center p-12 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-[6px] border-white"
                         style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                     >
-                        <span className="absolute top-6 left-6 text-gray-400 text-sm font-bold tracking-widest uppercase">Đáp án</span>
-                        <div className="text-2xl md:text-3xl font-bold text-gray-800 text-center leading-snug overflow-y-auto max-h-full w-full custom-scrollbar">
-                            {currentCard.answer.split('\n').map((line, i) => (
-                                <p key={i} className="mb-2">{line}</p>
-                            ))}
+                        {/* Nhãn "Đáp án" */}
+                        <div className={`absolute top-10 left-10 ${theme.gradient} px-6 py-2 rounded-full shadow-lg`}>
+                            <span className="text-white font-bold tracking-widest uppercase text-sm flex items-center gap-2">
+                                <Sparkles className="w-4 h-4" /> Đáp án
+                            </span>
+                        </div>
+
+                         {/* Nội dung đáp án (TO & RÕ) */}
+                        <div className="w-full h-full flex items-center justify-center overflow-hidden pt-12 pb-4">
+                            <div className="text-3xl md:text-5xl font-bold text-gray-800 text-center leading-snug overflow-y-auto max-h-full w-full pr-4 custom-scrollbar">
+                                {currentCard.answer.split('\n').map((line, i) => (
+                                    <p key={i} className={`mb-4 ${i === 0 ? "text-transparent bg-clip-text " + theme.gradient : ""}`}>
+                                        {line}
+                                    </p>
+                                ))}
+                            </div>
                         </div>
                      </div>
                 </div>
             </div>
 
-            {/* Next Button */}
+            {/* Nút Next (Desktop) */}
             <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="icon" 
                 onClick={nextCard} 
                 disabled={currentIndex === studySession.cards.length - 1}
-                className="hidden md:flex w-12 h-12 rounded-full border-2 border-white/20 bg-transparent text-white hover:bg-white/20 hover:text-white disabled:opacity-30"
+                className="hidden md:flex w-16 h-16 rounded-full border-2 border-white/10 bg-white/5 text-white hover:bg-white/20 hover:scale-110 transition-all disabled:opacity-0"
             >
-                <ChevronRight className="w-8 h-8" />
+                <ChevronRight className="w-10 h-10" />
             </Button>
         </div>
 
         {/* Mobile Navigation Controls (Bottom) */}
-        <div className="flex md:hidden items-center justify-between w-full max-w-md mt-8 px-4">
-             <Button onClick={prevCard} disabled={currentIndex === 0} variant="secondary" className="rounded-full w-12 h-12 p-0"><ChevronLeft /></Button>
-             <span className="text-white font-mono text-lg">{currentIndex + 1} / {studySession.cards.length}</span>
-             <Button onClick={nextCard} disabled={currentIndex === studySession.cards.length - 1} variant="secondary" className="rounded-full w-12 h-12 p-0"><ChevronRight /></Button>
+        <div className="flex md:hidden items-center justify-between w-full max-w-md mt-6 px-4 z-20">
+             <Button onClick={prevCard} disabled={currentIndex === 0} className={`rounded-full w-14 h-14 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white ${currentIndex === 0 ? "opacity-30" : ""}`}><ChevronLeft className="w-8 h-8" /></Button>
+             <span className="text-white/80 font-mono text-xl font-bold tracking-widest">{currentIndex + 1} / {studySession.cards.length}</span>
+             <Button onClick={nextCard} disabled={currentIndex === studySession.cards.length - 1} className={`rounded-full w-14 h-14 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white ${currentIndex === studySession.cards.length - 1 ? "opacity-30" : ""}`}><ChevronRight className="w-8 h-8" /></Button>
         </div>
       </div>
     )
   }
 
-
   // --- MAIN RENDER ---
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Sparkles className="animate-spin text-purple-500 w-10 h-10"/></div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Sparkles className="animate-spin text-purple-600 w-12 h-12"/></div>
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans selection:bg-purple-200">
       
       {/* Hiển thị StudyView nếu đang học */}
       {studySession.isActive && <StudyView />}
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header Area */}
-        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-4">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-6 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
             <div>
-                <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2">
+                <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-fuchsia-600 mb-2 tracking-tight">
                     Thư Viện Flashcard
                 </h1>
-                <p className="text-gray-500">Chọn một bộ thẻ để bắt đầu ôn tập ngay hôm nay!</p>
+                <p className="text-lg text-gray-500 font-medium">Chọn một bộ thẻ để bắt đầu hành trình chinh phục kiến thức!</p>
             </div>
             <Button
                 onClick={() => setShowForm(!showForm)}
-                className="bg-black text-white hover:bg-gray-800 rounded-full px-6 py-6 shadow-lg transition-transform hover:scale-105"
+                className="bg-gray-900 text-white hover:bg-black rounded-2xl px-8 py-7 text-lg font-bold shadow-xl shadow-gray-200 transition-all hover:scale-105 active:scale-95"
             >
-                {showForm ? <X className="mr-2"/> : <Sparkles className="mr-2" />}
-                {showForm ? "Đóng" : "Tạo thẻ mới"}
+                {showForm ? <X className="mr-2 w-6 h-6"/> : <Sparkles className="mr-2 w-6 h-6" />}
+                {showForm ? "Đóng lại" : "Tạo thẻ mới"}
             </Button>
         </div>
 
-        {/* Form Tạo Thẻ (Giữ nguyên logic cũ nhưng làm gọn UI) */}
+        {/* Form Tạo Thẻ */}
         {showForm && (
-             <Card className="mb-12 border-2 border-purple-100 shadow-xl overflow-hidden animate-in slide-in-from-top-4 fade-in">
-                <div className="h-2 bg-gradient-to-r from-blue-400 to-purple-500" />
-                <CardHeader>
-                    <CardTitle>Tạo Flashcard Mới</CardTitle>
+             <Card className="mb-12 border-none shadow-2xl rounded-[2rem] overflow-hidden animate-in slide-in-from-top-4 fade-in duration-500 ring-4 ring-purple-50">
+                <div className="h-3 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500" />
+                <CardHeader className="bg-white pt-8 pb-4 px-8">
+                    <CardTitle className="text-2xl font-bold text-gray-800">✨ Thêm kiến thức mới</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleCreateFlashcard} className="space-y-4">
-                        {error && <p className="text-red-500">{error}</p>}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Loại thẻ</label>
-                                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border rounded-md">
-                                    <option value="vocabulary">Từ Vựng</option>
-                                    <option value="grammar">Ngữ Pháp</option>
-                                    <option value="concept">Khái Niệm</option>
-                                    <option value="science">Khoa Học</option>
+                <CardContent className="bg-white p-8 pt-0">
+                    <form onSubmit={handleCreateFlashcard} className="space-y-6">
+                        {error && <div className="p-4 bg-red-50 text-red-600 rounded-xl font-medium border border-red-100">{error}</div>}
+                        
+                        <div>
+                            <label className="block text-gray-700 font-bold mb-2 ml-1">Loại thẻ</label>
+                            <div className="relative">
+                                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl appearance-none font-semibold text-gray-700 focus:outline-none focus:border-purple-500 focus:bg-white transition-all">
+                                    <option value="vocabulary">📖 Từ Vựng</option>
+                                    <option value="grammar">🔤 Ngữ Pháp</option>
+                                    <option value="concept">💡 Khái Niệm</option>
+                                    <option value="science">🔬 Khoa Học</option>
                                 </select>
+                                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">▼</div>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <textarea 
-                                value={question} onChange={(e) => setQuestion(e.target.value)} 
-                                placeholder="Câu hỏi..." className="w-full p-3 border rounded-xl h-32 focus:ring-2 focus:ring-purple-500 outline-none" 
-                             />
-                             <textarea 
-                                value={answer} onChange={(e) => setAnswer(e.target.value)} 
-                                placeholder="Câu trả lời..." className="w-full p-3 border rounded-xl h-32 focus:ring-2 focus:ring-green-500 outline-none" 
-                             />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div>
+                                <label className="block text-gray-700 font-bold mb-2 ml-1">Câu hỏi</label>
+                                <textarea 
+                                    value={question} onChange={(e) => setQuestion(e.target.value)} 
+                                    placeholder="Nhập nội dung câu hỏi..." className="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl h-40 focus:ring-4 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all text-lg" 
+                                />
+                             </div>
+                             <div>
+                                <label className="block text-gray-700 font-bold mb-2 ml-1">Đáp án</label>
+                                <textarea 
+                                    value={answer} onChange={(e) => setAnswer(e.target.value)} 
+                                    placeholder="Nhập nội dung đáp án..." className="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl h-40 focus:ring-4 focus:ring-green-100 focus:border-green-500 outline-none transition-all text-lg" 
+                                />
+                             </div>
                         </div>
-                        <Button type="submit" disabled={isSubmitting} className="w-full bg-gradient-to-r from-blue-500 to-purple-600 h-12 text-lg">
-                            {isSubmitting ? "Đang lưu..." : "Lưu thẻ"}
+                        <Button type="submit" disabled={isSubmitting} className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 h-16 text-xl font-bold rounded-2xl shadow-lg shadow-purple-200 transition-all transform active:scale-95">
+                            {isSubmitting ? "Đang lưu..." : "Lưu vào bộ thẻ"}
                         </Button>
                     </form>
                 </CardContent>
              </Card>
         )}
 
-        {/* GRID CÁC BỘ THẺ (DECK VIEW) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {/* GRID CÁC BỘ THẺ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             
             {/* 1. Các bộ thẻ theo Lớp */}
             {classes.map((cls, idx) => {
@@ -422,7 +495,7 @@ export default function StudentFlashcards({ userId }: StudentFlashcardsProps) {
                         title="Thẻ cá nhân của bạn"
                         count={personalCards.length}
                         colorIndex={99}
-                        avatarUrl={undefined} // Sẽ hiển thị icon mặc định
+                        avatarUrl={undefined} 
                         onClick={() => startStudy("Thẻ Cá Nhân", personalCards)}
                     />
                 )
@@ -430,12 +503,12 @@ export default function StudentFlashcards({ userId }: StudentFlashcardsProps) {
 
         </div>
 
-        {/* Empty State nếu không có thẻ nào */}
+        {/* Empty State */}
         {flashcards.length === 0 && !loading && (
-            <div className="text-center py-20">
-                <div className="text-6xl mb-4">📭</div>
-                <h3 className="text-xl font-bold text-gray-700">Chưa có flashcard nào</h3>
-                <p className="text-gray-500">Hãy tạo thẻ mới hoặc tham gia lớp học để bắt đầu.</p>
+            <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-gray-200">
+                <div className="text-8xl mb-6 animate-bounce">📭</div>
+                <h3 className="text-3xl font-bold text-gray-800 mb-2">Chưa có flashcard nào</h3>
+                <p className="text-xl text-gray-500 max-w-md mx-auto">Không gian này đang trống trải. Hãy tạo thẻ mới hoặc tham gia lớp học để lấp đầy kiến thức!</p>
             </div>
         )}
 
