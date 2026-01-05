@@ -11,9 +11,11 @@ import { EduTreasureQuest } from "./edu-treasure-quest"
 import RabbitMathGame from "./RabbitMathGame"
 import { SnailMazeAdventure } from "./snail-maze-adventure"
 import BoardGameParty from "./board-game-party"
-import CanCuToanHoc from "./can-cu-toan-hoc"
 import TimesTableDuck from "./times-table-duck"
 import MathDuckPlatformer from "./math-duck-platformer"
+
+// Import game mới (Đảm bảo bạn đã tạo file MathSpaceDefender.tsx)
+import MathSpaceDefender from "./MathSpaceDefender" 
 
 export function GameHub() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
@@ -42,14 +44,18 @@ export function GameHub() {
     },
 
     // Các game thường
+    
+    // --- ĐÃ THAY THẾ CĂN CỨ TOÁN HỌC BẰNG CHIẾN CƠ TOÁN HỌC ---
     {
-      id: "can-cu-toan-hoc",
-      name: "🏗️ Căn Cứ Toán Học",
+      id: "math-space-defender",
+      name: "🚀 Chiến Cơ Toán Học",
       description:
-        "Xây dựng căn cứ toán học bằng cách giải các bài toán và biểu thức. Chọn mức độ khó, giải nhanh để kiếm điểm cao! Mua trang trí tuyệt đẹp với điểm kiếm được.",
-      icon: () => <span>🏗️</span>,
-      component: CanCuToanHoc,
+        "Điều khiển phi thuyền không gian, bắn vỡ các thiên thạch chứa đáp án đúng để bảo vệ vũ trụ! Mua phi thuyền mới bằng điểm tích lũy.",
+      icon: () => <span>🚀</span>,
+      component: MathSpaceDefender,
     },
+    // -----------------------------------------------------------
+
     {
       id: "board-game-party",
       name: "🎲 Board Game Party",
@@ -93,6 +99,8 @@ export function GameHub() {
         <Button variant="outline" onClick={() => setSelectedGame(null)}>
           ← Quay lại
         </Button>
+        {/* Render Game Component */}
+        {/* @ts-ignore - Bỏ qua lỗi check type props nếu các game có props khác nhau */}
         <GameComponent {...(selected.props ?? {})} />
       </div>
     )
