@@ -454,16 +454,27 @@ export default function MathSpaceDefender() {
   }
 
   // Handle Input
-  useEffect(() => {
-    const handleDown = (e: KeyboardEvent) => { keysPressed.current[e.key.toLowerCase()] = true }
-    const handleUp = (e: KeyboardEvent) => { keysPressed.current[e.key.toLowerCase()] = false }
-    window.addEventListener("keydown", handleDown)
-    window.addEventListener("keyup", handleUp)
-    return () => {
-        window.removeEventListener("keydown", handleDown)
-        window.removeEventListener("keyup", handleUp)
-    }
-  }, [])
+// Tìm đến useEffect xử lý Input và sửa lại như sau:
+    useEffect(() => {
+        const handleDown = (e: KeyboardEvent) => {
+            // Ngăn màn hình cuộn khi ấn Space hoặc các phím mũi tên
+            if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(e.key.toLowerCase())) {
+            e.preventDefault();
+            }
+            keysPressed.current[e.key.toLowerCase()] = true;
+        };
+
+        const handleUp = (e: KeyboardEvent) => {
+            keysPressed.current[e.key.toLowerCase()] = false;
+        };
+
+        window.addEventListener("keydown", handleDown);
+        window.addEventListener("keyup", handleUp);
+        return () => {
+            window.removeEventListener("keydown", handleDown);
+            window.removeEventListener("keyup", handleUp);
+        };
+    }, []);
 
   // Start Loop
   useEffect(() => {
