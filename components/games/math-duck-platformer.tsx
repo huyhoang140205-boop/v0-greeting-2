@@ -1235,7 +1235,7 @@ export default function MathDuckMaze() {
         <Card className="w-full max-w-2xl p-8 bg-white/90 backdrop-blur-sm border-4 border-indigo-600 rounded-3xl shadow-2xl">
           <div className="text-center space-y-6">
             <h1 className="text-6xl font-black text-indigo-800 drop-shadow-md" style={{ fontFamily: "Comic Sans MS" }}>
-              🦆 VỊT LÀM TOÁN
+              🗺️ GIẢI TOÁN MÊ CUNG
             </h1>
             <p className="text-2xl text-purple-600 font-bold">Thử thách trí tuệ & sự khéo léo!</p>
 
