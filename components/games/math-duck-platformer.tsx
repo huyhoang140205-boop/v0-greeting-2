@@ -1,18 +1,17 @@
 "use client"
 
-import React from "react"
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { createClient } from "@supabase/supabase-js"
 
 // --- SUPABASE CONFIGURATION ---
-// Bạn cần tạo file .env.local và điền thông tin này hoặc thay trực tiếp vào đây
+// Hãy chắc chắn bạn đã điền đúng URL và Key trong .env.local hoặc ở đây
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL"
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY"
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-const GAME_SLUG = "math-duck-maze" // Slug định danh cho game này trong bảng 'game'
+const GAME_SLUG = "math-duck-maze"
 
 // --- TYPES ---
 
@@ -97,13 +96,20 @@ interface PlayerState {
   completedLevels: number[]
 }
 
-const CHARACTER_SHOP: Record<Character, { name: string; price: number; avatar: string; emoji: string }> = {
-  doremon: { name: "Doremon", price: 0, avatar: "/avarta/doremon.jpg", emoji: "/avarta/doremon.jpg" },
-  nobita: { name: "Nobita", price: 300, avatar: "/avarta/nobita.jpg", emoji: "/avarta/nobita.jpg" },
-  chaien: { name: "Chaien", price: 300, avatar: "/avarta/chaien.jpg", emoji: "/avarta/chaien.jpg" },
-  shizuka: { name: "Shizuka", price: 500, avatar: "/avarta/shizuka.jpg", emoji: "/avarta/shizuka.jpg" },
-  goku: { name: "Goku", price: 800, avatar: "/avarta/goku.jpg", emoji: "/avarta/goku.jpg" },
-  pikachu: { name: "Pikachu", price: 800, avatar: "/avarta/pikachu.jpg", emoji: "/avarta/pikachu.jpg" },
+const CHARACTER_SHOP: Record<Character, { name: string; price: number; avatar: string }> = {
+  doremon: { name: "Doremon", price: 0, avatar: "/avarta/doremon.jpg" },
+  nobita: { name: "Nobita", price: 300, avatar: "/avarta/nobita.jpg" },
+  chaien: { name: "Chaien", price: 300, avatar: "/avarta/chaien.jpg" },
+  shizuka: { name: "Shizuka", price: 500, avatar: "/avarta/shizuka.jpg" },
+  goku: { name: "Goku", price: 800, avatar: "/avarta/goku.jpg" },
+  pikachu: { name: "Pikachu", price: 800, avatar: "/avarta/pikachu.jpg" },
+}
+
+const DEFAULT_PLAYER_STATE: PlayerState = {
+  coins: 0,
+  unlockedCharacters: ["doremon"],
+  currentCharacter: "doremon",
+  completedLevels: [],
 }
 
 export default function MathDuckMaze() {
@@ -114,29 +120,20 @@ export default function MathDuckMaze() {
   const [userId, setUserId] = useState<string | null>(null)
   const [gameId, setGameId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDataLoaded, setIsDataLoaded] = useState(false) // QUAN TRỌNG: Chặn lưu khi chưa load xong
 
   const [playerState, setPlayerState] = useState<PlayerState>(() => {
-    // Initial load from LocalStorage for immediate render, will be overwritten by DB if logged in
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("mathDuckPlayerState")
       if (saved) {
         try {
-          const parsed = JSON.parse(saved)
-          if (!parsed.currentCharacter || !CHARACTER_SHOP[parsed.currentCharacter as Character]) {
-            parsed.currentCharacter = "doremon"
-          }
-          return parsed
+          return { ...DEFAULT_PLAYER_STATE, ...JSON.parse(saved) }
         } catch (e) {
-          console.error("Failed to parse saved player state:", e)
+          console.error("Local parse error", e)
         }
       }
     }
-    return {
-      coins: 0,
-      unlockedCharacters: ["doremon"] as Character[],
-      currentCharacter: "doremon" as Character,
-      completedLevels: [],
-    }
+    return DEFAULT_PLAYER_STATE
   })
 
   const [score, setScore] = useState(0)
@@ -152,132 +149,89 @@ export default function MathDuckMaze() {
   const [currentBonusQuestion, setCurrentBonusQuestion] = useState<BonusQuestion | null>(null)
   const [selectedBonusAnswer, setSelectedBonusAnswer] = useState<number | null>(null)
 
-  const [characterImages, setCharacterImages] = React.useState<Record<string, HTMLImageElement>>({})
+  const [characterImages, setCharacterImages] = useState<Record<string, HTMLImageElement>>({})
 
-  // --- DATABASE INTEGRATION HOOKS (FIXED) ---
+  // --- DATABASE LOGIC ---
 
-  // 1. Get User and Game ID (Auto Create Game/Profile if missing)
+  // 1. Init Session & Fetch Game ID
   useEffect(() => {
     const initSession = async () => {
-      // Get User
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUserId(user.id)
-        console.log("Logged in as:", user.email)
-
-        // FIX: Đảm bảo user tồn tại trong bảng public.profiles
-        // Nếu bạn chưa set trigger trong DB, bước này rất quan trọng
-        const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
-        if (!profile) {
-            console.log("Profile not found, creating placeholder profile...");
-            await supabase.from('profiles').insert({
-                id: user.id,
-                email: user.email,
-                username: user.email?.split('@')[0],
-                role: 'student' // default role
-            });
-        }
+      } else {
+        setIsDataLoaded(true) // Nếu là khách, coi như đã load xong (dùng localStorage)
       }
 
-      // FIX: Tìm Game ID, nếu chưa có thì TỰ TẠO
-      let { data: gameData, error } = await supabase
+      const { data: gameData } = await supabase
         .from('game')
         .select('id')
         .eq('slug', GAME_SLUG)
         .single()
       
-      if (gameData) {
-        setGameId(gameData.id)
-      } else {
-        console.log("Game not found, creating new game entry...");
-        // Tự động tạo game mới nếu chưa có
-        const { data: newGame, error: createError } = await supabase
-            .from('game')
-            .insert({
-                slug: GAME_SLUG,
-                title: "Math Duck Maze",
-                description: "Math learning game",
-                is_active: true
-            })
-            .select('id')
-            .single();
-        
-        if (newGame) {
-            setGameId(newGame.id);
-            console.log("Created new Game ID:", newGame.id);
-        } else {
-            console.error("Could not create Game ID:", createError);
-        }
-      }
+      if (gameData) setGameId(gameData.id)
     }
     initSession()
   }, [])
 
-  // 2. Load Progress from Database
+  // 2. Load Data from DB (Chỉ chạy khi có user và gameId)
   useEffect(() => {
     const loadFromDb = async () => {
       if (!userId || !gameId) return
 
-      // Lấy bản ghi chơi game gần nhất để phục hồi coin và nhân vật
-      const { data, error } = await supabase
-        .from('game_plays')
-        .select('metadata')
-        .eq('user_id', userId)
-        .eq('game_id', gameId)
-        .order('played_at', { ascending: false })
-        .limit(1)
-        .single()
+      try {
+        const { data, error } = await supabase
+          .from('game_plays')
+          .select('metadata')
+          .eq('user_id', userId)
+          .eq('game_id', gameId)
+          .order('played_at', { ascending: false })
+          .limit(1)
+          .single()
 
-      if (data && data.metadata) {
-        const dbState = data.metadata as PlayerState
-        // Merge with defaults to ensure integrity
-        setPlayerState({
-          coins: dbState.coins ?? 0,
-          unlockedCharacters: dbState.unlockedCharacters ?? ["doremon"],
-          currentCharacter: dbState.currentCharacter ?? "doremon",
-          completedLevels: dbState.completedLevels ?? []
-        })
-        console.log("Loaded save from DB successfully")
-      } else {
-          console.log("No save data found for this user, starting fresh.");
+        if (data && data.metadata) {
+          const dbState = data.metadata as PlayerState
+          // Merge deep để tránh mất trường dữ liệu mới nếu có update sau này
+          setPlayerState(prev => ({
+            ...prev,
+            ...dbState,
+            // Đảm bảo character hợp lệ
+            currentCharacter: CHARACTER_SHOP[dbState.currentCharacter] ? dbState.currentCharacter : "doremon"
+          }))
+          console.log("✅ Loaded data from DB")
+        }
+      } catch (err) {
+        console.error("Error loading DB:", err)
+      } finally {
+        setIsDataLoaded(true) // Đánh dấu đã load xong
       }
     }
 
     loadFromDb()
   }, [userId, gameId])
 
-  // 3. Save Function (FIXED)
-  const saveToDatabase = async (manualSave = false) => {
-    if (!userId) {
-        if (manualSave) alert("Vui lòng đăng nhập để lưu vào Cloud!");
-        return;
-    }
-    if (!gameId) {
-        console.error("Cannot save: Game ID missing (Check 'game' table)");
-        return;
+  // 3. Save Function (Chỉ save khi đã load xong data)
+  const saveToDatabase = useCallback(async (manualSave = false) => {
+    // Nếu chưa đăng nhập hoặc dữ liệu chưa load xong từ DB thì KHÔNG lưu đè
+    if (!userId || !gameId || !isDataLoaded) {
+      if (manualSave && !userId) alert("Vui lòng đăng nhập để lưu vào Cloud!")
+      return
     }
 
     setIsSaving(true)
     try {
-      // 1. Save snapshot to game_plays
       const playPayload = {
         user_id: userId,
         game_id: gameId,
-        score: score, // Current session score
+        score: score,
         played_at: new Date().toISOString(),
-        metadata: playerState // Save full JSON state here
+        metadata: playerState
       }
 
-      const { error: playError } = await supabase
-        .from('game_plays')
-        .insert(playPayload)
+      const { error } = await supabase.from('game_plays').insert(playPayload)
+      if (error) throw error
 
-      if (playError) {
-          console.error("Error inserting into game_plays:", playError);
-          throw playError;
-      }
-
-      // 2. Update Aggregated Score in game_scores
+      // Cập nhật bảng điểm tổng hợp (Leaderboard)
       const { data: existingScore } = await supabase
         .from('game_scores')
         .select('id, best_score, plays_count')
@@ -286,23 +240,15 @@ export default function MathDuckMaze() {
         .single()
 
       if (existingScore) {
-        const { error: updateError } = await supabase
-          .from('game_scores')
-          .update({
+        await supabase.from('game_scores').update({
             best_score: Math.max(existingScore.best_score || 0, score),
             plays_count: (existingScore.plays_count || 0) + 1,
             last_score: score,
             last_played: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          })
-          .eq('id', existingScore.id)
-        
-        if (updateError) console.error("Error updating game_scores:", updateError);
-
+          }).eq('id', existingScore.id)
       } else {
-        const { error: insertError } = await supabase
-          .from('game_scores')
-          .insert({
+        await supabase.from('game_scores').insert({
             user_id: userId,
             game_id: gameId,
             best_score: score,
@@ -310,22 +256,25 @@ export default function MathDuckMaze() {
             last_score: score,
             last_played: new Date().toISOString()
           })
-        
-        if (insertError) console.error("Error inserting game_scores:", insertError);
       }
 
       if (manualSave) alert("Đã lưu thành công!")
-      console.log("Game saved to DB successfully")
     } catch (err) {
-      console.error("Save failed (FATAL):", err)
-      if (manualSave) alert("Lỗi khi lưu dữ liệu! Kiểm tra Console.")
+      console.error("Save failed:", err)
+      if (manualSave) alert("Lỗi khi lưu dữ liệu!")
     } finally {
       setIsSaving(false)
     }
-  }
+  }, [userId, gameId, isDataLoaded, playerState, score])
 
-  // --- END DATABASE HOOKS ---
+  // LocalStorage Backup (Luôn chạy để user chưa login vẫn chơi được)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mathDuckPlayerState", JSON.stringify(playerState))
+    }
+  }, [playerState])
 
+  // Preload Images
   useEffect(() => {
     const images: Record<string, HTMLImageElement> = {}
     Object.entries(CHARACTER_SHOP).forEach(([id, char]) => {
@@ -336,13 +285,7 @@ export default function MathDuckMaze() {
     setCharacterImages(images)
   }, [])
 
-  // LocalStorage Backup
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mathDuckPlayerState", JSON.stringify(playerState))
-    }
-  }, [playerState])
-
+  // --- GAME CONFIG DATA (LEVELS) ---
   const LEVELS = [
     {
       id: 1,
@@ -379,6 +322,7 @@ export default function MathDuckMaze() {
       doorPos: { x: 860, y: 420 },
       treasures: [{ x: 500, y: 230, reward: 50 }],
     },
+    // ... Copy các level khác giữ nguyên, chỉ chỉnh logic spawn bên dưới ...
     {
       id: 2,
       name: "Sa Mạc",
@@ -413,10 +357,7 @@ export default function MathDuckMaze() {
       ],
       playerStart: { x: 100, y: 100 },
       doorPos: { x: 860, y: 420 },
-      treasures: [
-        { x: 250, y: 180, reward: 60 },
-        { x: 750, y: 380, reward: 60 },
-      ],
+      treasures: [{ x: 250, y: 180, reward: 60 }, { x: 750, y: 380, reward: 60 }],
     },
     {
       id: 3,
@@ -490,10 +431,7 @@ export default function MathDuckMaze() {
       ],
       playerStart: { x: 100, y: 100 },
       doorPos: { x: 860, y: 420 },
-      treasures: [
-        { x: 350, y: 400, reward: 80 },
-        { x: 750, y: 380, reward: 80 },
-      ],
+      treasures: [{ x: 350, y: 400, reward: 80 }, { x: 750, y: 380, reward: 80 }],
     },
     {
       id: 5,
@@ -570,10 +508,7 @@ export default function MathDuckMaze() {
       ],
       playerStart: { x: 100, y: 100 },
       doorPos: { x: 860, y: 420 },
-      treasures: [
-        { x: 380, y: 280, reward: 100 },
-        { x: 720, y: 340, reward: 100 },
-      ],
+      treasures: [{ x: 380, y: 280, reward: 100 }, { x: 720, y: 340, reward: 100 }],
     },
     {
       id: 7,
@@ -656,10 +591,7 @@ export default function MathDuckMaze() {
       ],
       playerStart: { x: 100, y: 100 },
       doorPos: { x: 860, y: 420 },
-      treasures: [
-        { x: 280, y: 380, reward: 130 },
-        { x: 680, y: 380, reward: 130 },
-      ],
+      treasures: [{ x: 280, y: 380, reward: 130 }, { x: 680, y: 380, reward: 130 }],
     },
     {
       id: 9,
@@ -751,11 +683,7 @@ export default function MathDuckMaze() {
       ],
       playerStart: { x: 100, y: 100 },
       doorPos: { x: 860, y: 420 },
-      treasures: [
-        { x: 280, y: 420, reward: 200 },
-        { x: 550, y: 400, reward: 200 },
-        { x: 800, y: 380, reward: 200 },
-      ],
+      treasures: [{ x: 280, y: 420, reward: 200 }, { x: 550, y: 400, reward: 200 }, { x: 800, y: 380, reward: 200 }],
     },
   ]
 
@@ -763,33 +691,22 @@ export default function MathDuckMaze() {
     const num1 = Math.floor(Math.random() * 9) + 1
     const num2 = Math.floor(Math.random() * 9) + 1
     const correctAnswer = num1 * num2
-
     const wrongAnswers = new Set<number>()
     while (wrongAnswers.size < 3) {
       const wrong = correctAnswer + Math.floor(Math.random() * 20) - 10
-      if (wrong > 0 && wrong !== correctAnswer) {
-        wrongAnswers.add(wrong)
-      }
+      if (wrong > 0 && wrong !== correctAnswer) wrongAnswers.add(wrong)
     }
-
     const options = [correctAnswer, ...Array.from(wrongAnswers)].sort(() => Math.random() - 0.5)
-
-    return {
-      question: `${num1} × ${num2} = ?`,
-      correctAnswer,
-      options,
-    }
+    return { question: `${num1} × ${num2} = ?`, correctAnswer, options }
   }
 
-  // --- Particle System Functions ---
   const createExplosion = (x: number, y: number, color: string, count: number): Particle[] => {
     const particles: Particle[] = []
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2
       const speed = Math.random() * 5 + 2
       particles.push({
-        x,
-        y,
+        x, y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         life: 1.0,
@@ -800,64 +717,51 @@ export default function MathDuckMaze() {
     return particles
   }
 
-  // Improved random position generator to prevent overlaps with ANY objects
+  // --- IMPROVED RANDOM POSITION ---
+  // Fix: Check against ALL existing items (treasures, other tiles, start, door)
   const getRandomPosition = (
     walls: MapObject[],
-    forbiddenRects: MapObject[], // Pass existing items (treasures, other tiles) here
+    forbiddenRects: MapObject[], 
     playerStart: { x: number; y: number },
     width: number = 40,
     height: number = 40,
   ) => {
-    const maxAttempts = 500 // Increased attempts
-    const buffer = 10 // Extra space between objects
+    const maxAttempts = 1000 
+    const buffer = 15 // Tăng buffer để không dính sát tường/vật khác
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const x = 100 + Math.floor(Math.random() * 750)
-      const y = 100 + Math.floor(Math.random() * 350)
-      const newRect = { x, y, width, height }
-
+      const x = 70 + Math.floor(Math.random() * 800) // Giới hạn trong vùng an toàn
+      const y = 70 + Math.floor(Math.random() * 350)
+      
       let valid = true
 
-      // Keep away from player start
-      if (Math.abs(x - playerStart.x) < 80 && Math.abs(y - playerStart.y) < 80) {
-        valid = false
-      }
+      // Tránh spawn đè lên người chơi
+      if (Math.abs(x - playerStart.x) < 80 && Math.abs(y - playerStart.y) < 80) valid = false
 
-      // Check wall collisions with margin
+      // Tránh tường
       if (valid) {
         for (const wall of walls) {
-          if (
-            x < wall.x + wall.width + buffer &&
-            x + width > wall.x - buffer &&
-            y < wall.y + wall.height + buffer &&
-            y + height > wall.y - buffer
-          ) {
-            valid = false
-            break
+          if (x < wall.x + wall.width + buffer && x + width > wall.x - buffer &&
+              y < wall.y + wall.height + buffer && y + height > wall.y - buffer) {
+            valid = false; break;
           }
         }
       }
 
-      // Check spacing from OTHER forbidden objects (treasures, existing tiles)
+      // Tránh các vật thể đã đặt (rương, ô đáp án khác)
       if (valid) {
         for (const rect of forbiddenRects) {
-           if (
-            x < rect.x + rect.width + buffer &&
-            x + width > rect.x - buffer &&
-            y < rect.y + rect.height + buffer &&
-            y + height > rect.y - buffer
-          ) {
-            valid = false
-            break
+           if (x < rect.x + rect.width + buffer && x + width > rect.x - buffer &&
+               y < rect.y + rect.height + buffer && y + height > rect.y - buffer) {
+            valid = false; break;
           }
         }
       }
 
       if (valid) return { x, y }
     }
-
-    // Fallback if safe spot not found (rare with high maxAttempts)
-    return { x: 400, y: 250 }
+    // Fallback position
+    return { x: 450, y: 250 }
   }
 
   const initGameMap = (levelNum: number) => {
@@ -867,32 +771,19 @@ export default function MathDuckMaze() {
     const mathProblems: MathProblem[] = levelConfig.multipliers.map((mult, idx) => {
       const b = Math.floor(Math.random() * 10) + 1
       return {
-        id: `problem-${idx}`,
-        a: mult,
-        b: b,
-        correctAnswer: mult * b,
-        solved: false,
-        table: mult,
+        id: `problem-${idx}`, a: mult, b: b, correctAnswer: mult * b, solved: false, table: mult,
       }
     })
 
     const answerTiles: AnswerTile[] = []
     const allAnswerValues = new Set<number>()
+    mathProblems.forEach((problem) => allAnswerValues.add(problem.correctAnswer))
 
-    // Add all correct answers
     mathProblems.forEach((problem) => {
-      allAnswerValues.add(problem.correctAnswer)
-    })
-
-    // Generate unique wrong answers
-    mathProblems.forEach((problem) => {
-      let wrongCount = 0
-      let attempts = 0
+      let wrongCount = 0; let attempts = 0
       while (wrongCount < 2 && attempts < 20) {
         const offset = Math.floor(Math.random() * 10) + 1
-        const wrongValue =
-          Math.random() > 0.5 ? problem.correctAnswer + offset : Math.max(1, problem.correctAnswer - offset)
-
+        const wrongValue = Math.random() > 0.5 ? problem.correctAnswer + offset : Math.max(1, problem.correctAnswer - offset)
         if (!allAnswerValues.has(wrongValue) && wrongValue > 0 && wrongValue <= 144) {
           allAnswerValues.add(wrongValue)
           wrongCount++
@@ -901,43 +792,28 @@ export default function MathDuckMaze() {
       }
     })
 
-    // Create treasures first so tiles don't overlap them
-    const treasures: Treasure[] = levelConfig.treasures.map((t, idx) => ({
-      x: t.x,
-      y: t.y,
-      width: 40,
-      height: 40,
-      type: "treasure",
-      collected: false,
-      reward: t.reward,
-      glowTime: 0,
+    const treasures: Treasure[] = levelConfig.treasures.map((t) => ({
+      x: t.x, y: t.y, width: 40, height: 40,
+      type: "treasure", collected: false, reward: t.reward, glowTime: 0,
       bonusQuestion: generateBonusQuestion(),
     }))
 
-    // Place answer tiles ensuring no overlap with each other or treasures
-    const placedItems: MapObject[] = [...treasures]
+    // Danh sách các vật thể cấm đè lên nhau
+    // Ban đầu bao gồm Rương và Cửa
+    const placedItems: MapObject[] = [...treasures, {x: levelConfig.doorPos.x, y: levelConfig.doorPos.y, width: 50, height: 50}]
 
     Array.from(allAnswerValues).forEach((value, idx) => {
-      // Pass the currently placed items to avoid overlap
+      // Truyền danh sách placedItems để tránh đè
       const pos = getRandomPosition(levelConfig.walls, placedItems, levelConfig.playerStart, 40, 40)
-      
       const newTile: AnswerTile = {
-        x: pos.x,
-        y: pos.y,
-        width: 40,
-        height: 40,
-        id: `answer-${idx}`,
-        value: value,
-        picked: false,
-        pulseTime: 0,
-        problemId: "",
+        x: pos.x, y: pos.y, width: 40, height: 40,
+        id: `answer-${idx}`, value: value, picked: false, pulseTime: 0, problemId: "",
       }
-      
       answerTiles.push(newTile)
-      placedItems.push(newTile) // Add to forbidden list for next tile
+      placedItems.push(newTile) // Thêm tile mới vào danh sách cấm
     })
 
-    // Distribute answer tiles to problems
+    // Assign tiles to problems
     const availableTiles = [...answerTiles]
     mathProblems.forEach((problem) => {
       const correctTileIndex = availableTiles.findIndex((tile) => tile.value === problem.correctAnswer)
@@ -946,7 +822,6 @@ export default function MathDuckMaze() {
         correctTile.problemId = problem.id
         answerTiles.find((t) => t.id === correctTile.id)!.problemId = problem.id
       }
-
       const wrongTilesToAssign = Math.min(2, availableTiles.length)
       for (let i = 0; i < wrongTilesToAssign; i++) {
         const wrongTile = availableTiles.pop()
@@ -959,33 +834,20 @@ export default function MathDuckMaze() {
 
     const gameMap: GameMap = {
       player: {
-        x: levelConfig.playerStart.x,
-        y: levelConfig.playerStart.y,
-        width: 30,
-        height: 30,
-        vx: 0,
-        vy: 0,
-        spawnX: levelConfig.playerStart.x,
-        spawnY: levelConfig.playerStart.y,
+        x: levelConfig.playerStart.x, y: levelConfig.playerStart.y,
+        width: 30, height: 30, vx: 0, vy: 0,
+        spawnX: levelConfig.playerStart.x, spawnY: levelConfig.playerStart.y,
       },
       walls: levelConfig.walls.map((w) => ({ ...w, type: "wall" as const })),
       answerTiles: answerTiles,
       mathProblems: mathProblems,
       treasures: treasures,
-      particles: [], // Initialize empty particles
-      key: { x: 500, y: 250, width: 30, height: 30, visible: false, collected: false, bounceTime: 0 },
-      door: {
-        x: levelConfig.doorPos.x,
-        y: levelConfig.doorPos.y,
-        width: 50,
-        height: 50,
-        locked: true,
-        glowTime: 0,
-      },
+      particles: [],
+      key: { x: -100, y: -100, width: 30, height: 30, visible: false, collected: false, bounceTime: 0 },
+      door: { x: levelConfig.doorPos.x, y: levelConfig.doorPos.y, width: 50, height: 50, locked: true, glowTime: 0 },
       theme: levelConfig.theme,
       flashEffect: { active: false, color: "", time: 0 },
     }
-
     gameMapRef.current = gameMap
   }
 
@@ -995,102 +857,80 @@ export default function MathDuckMaze() {
 
   const updateGameMap = () => {
     const map = gameMapRef.current
-    if (!map) return
-
+    if (!map || !canvasRef.current) return
     const canvas = canvasRef.current
-    if (!canvas) return
 
     // Update Particles
     for (let i = map.particles.length - 1; i >= 0; i--) {
         const p = map.particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.2; // Gravity
-        p.life -= 0.02;
-        if (p.life <= 0) {
-            map.particles.splice(i, 1);
-        }
+        p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.02;
+        if (p.life <= 0) map.particles.splice(i, 1);
     }
 
     const MOVE_SPEED = 3
-
     const newX = map.player.x + map.player.vx * MOVE_SPEED
     const newY = map.player.y + map.player.vy * MOVE_SPEED
 
-    let canMoveX = true
-    let canMoveY = true
-
+    let canMoveX = true; let canMoveY = true
     const futurePlayerX = { ...map.player, x: newX }
     const futurePlayerY = { ...map.player, y: newY }
 
     for (const wall of map.walls) {
-      if (collide(futurePlayerX, wall)) {
-        canMoveX = false
-      }
-      if (collide(futurePlayerY, wall)) {
-        canMoveY = false
-      }
+      if (collide(futurePlayerX, wall)) canMoveX = false
+      if (collide(futurePlayerY, wall)) canMoveY = false
     }
 
     if (canMoveX) map.player.x = newX
     if (canMoveY) map.player.y = newY
-
     map.player.x = Math.max(0, Math.min(canvas.width - map.player.width, map.player.x))
     map.player.y = Math.max(0, Math.min(canvas.height - map.player.height, map.player.y))
 
     map.answerTiles.forEach((tile) => {
       if (!tile.picked && collide(map.player, tile)) {
         const matchingProblem = map.mathProblems.find((p) => !p.solved && p.id === tile.problemId)
-
         if (matchingProblem && matchingProblem.correctAnswer === tile.value) {
           matchingProblem.solved = true
           setScore((prev) => prev + 100)
           map.flashEffect = { active: true, color: "rgba(0, 255, 0, 0.3)", time: 0 }
-
+          
+          // Check spawn key
           const allSolved = map.mathProblems.every((p) => p.solved)
           if (allSolved && !map.key.visible && !map.key.collected) {
-            // Spawn Key SAFE from walls and existing obstacles
-            // Note: pass [] for existing items if you only care about walls, 
-            // but safer to pass existing non-picked tiles if any
-            const keyPos = getRandomPosition(map.walls, [], map.player, 30, 30)
+            // Gom tất cả vật thể hiện có để tránh spawn key đè lên
+            const currentObstacles = [
+                ...map.walls,
+                ...map.treasures.filter(t => !t.collected),
+                ...map.answerTiles.filter(t => !t.picked), // Tránh đè lên tile chưa ăn (nếu có)
+                map.door
+            ]
+            const keyPos = getRandomPosition(map.walls, currentObstacles, map.player, 30, 30)
             map.key.x = keyPos.x
             map.key.y = keyPos.y
             map.key.visible = true
-            
-            // Effect when key appears
             map.particles.push(...createExplosion(map.key.x + 15, map.key.y + 15, "#FFD700", 20));
-        }
+          }
         } else {
-          // Wrong answer - reset position only
           map.flashEffect = { active: true, color: "rgba(255, 0, 0, 0.3)", time: 0 }
           map.player.x = map.player.spawnX
           map.player.y = map.player.spawnY
-          map.player.vx = 0
-          map.player.vy = 0
         }
-        tile.picked = true // Mark tile as picked regardless of correctness
+        tile.picked = true
       }
     })
 
     map.treasures.forEach((treasure) => {
       if (!treasure.collected && collide(map.player, treasure)) {
-        // Show bonus question modal
         setCurrentBonusQuestion(treasure.bonusQuestion || null)
         setShowBonusQuestion(true)
         setGameState("paused")
         treasure.collected = true 
-        // Particle effect for opening chest
         map.particles.push(...createExplosion(treasure.x + 20, treasure.y + 20, "#FFD700", 30));
-        map.particles.push(...createExplosion(treasure.x + 20, treasure.y + 20, "#FFFFFF", 15));
       }
     })
 
     if (map.key.visible && !map.key.collected && collide(map.player, map.key)) {
-      map.key.collected = true
-      map.key.visible = false
-      map.door.locked = false
+      map.key.collected = true; map.key.visible = false; map.door.locked = false
       setScore((prev) => prev + 50)
-      // Particle effect for key
       map.particles.push(...createExplosion(map.player.x + 15, map.player.y + 15, "#FFFF00", 25));
     }
 
@@ -1100,20 +940,12 @@ export default function MathDuckMaze() {
           const newState = {
             ...prev,
             coins: prev.coins + earnedCoins,
-            completedLevels: prev.completedLevels.includes(currentLevel)
-            ? prev.completedLevels
-            : [...prev.completedLevels, currentLevel],
+            completedLevels: prev.completedLevels.includes(currentLevel) ? prev.completedLevels : [...prev.completedLevels, currentLevel],
           }
-          // --- Trigger Auto Save on Level Complete ---
-          // Use setTimeout to ensure state update propagates if needed, or pass explicitly
-          setTimeout(() => saveToDatabase(), 500);
+          setTimeout(() => saveToDatabase(), 500); // Save on Win
           return newState;
       })
-
-      map.player.vx = 0
-      map.player.vy = 0
-      keysPressed.current = {}
-
+      map.player.vx = 0; map.player.vy = 0; keysPressed.current = {}
       setGameState("WIN")
     }
   }
@@ -1122,45 +954,33 @@ export default function MathDuckMaze() {
     const canvas = canvasRef.current
     const map = gameMapRef.current
     if (!canvas || !map) return
-
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
     animationFrameRef.current++
 
+    // --- RENDER HELPERS ---
     const drawBackground = () => {
       const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
       const { theme } = map
-
       if (theme.bg.includes("gradient")) {
         const colors = theme.bg.match(/#[0-9A-Fa-f]{6}/g) || []
         if (colors.length >= 2) {
-          gradient.addColorStop(0, colors[0])
-          gradient.addColorStop(1, colors[1])
+          gradient.addColorStop(0, colors[0]); gradient.addColorStop(1, colors[1]);
         } else {
-          gradient.addColorStop(0, theme.bg || "#f0f0f0")
-          gradient.addColorStop(1, theme.bg || "#d0d0d0")
+          gradient.addColorStop(0, theme.bg || "#f0f0f0"); gradient.addColorStop(1, "#d0d0d0");
         }
       } else {
         gradient.fillStyle = theme.bg || "#f0f0f0"
       }
-
       ctx.fillStyle = gradient
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-
       ctx.font = "48px Arial"
       const decorations = theme.decorations || []
-
       ctx.fillText(decorations[0] || "🌳", 50, 80)
       ctx.fillText(decorations[1] || "🌲", canvas.width - 100, 80)
       ctx.fillText(decorations[2] || "🌿", 50, canvas.height - 50)
       ctx.fillText(decorations[3] || "🍃", canvas.width - 100, canvas.height - 50)
-
-      for (let i = 0; i < 3; i++) {
-        const x = 150 + i * 250
-        const y = 100 + (i % 2) * 400
-        ctx.fillText(decorations[i % decorations.length], x, y)
-      }
     }
 
     drawBackground()
@@ -1169,458 +989,203 @@ export default function MathDuckMaze() {
       map.flashEffect.time++
       ctx.fillStyle = map.flashEffect.color
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      if (map.flashEffect.time > 15) {
-        map.flashEffect.active = false
-        map.flashEffect.time = 0
-      }
+      if (map.flashEffect.time > 15) map.flashEffect.active = false
     }
 
-    ctx.shadowBlur = 8
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)"
-    ctx.shadowOffsetX = 3
-    ctx.shadowOffsetY = 3
-
+    // Walls
+    ctx.shadowBlur = 8; ctx.shadowColor = "rgba(0, 0, 0, 0.5)"; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3
     map.walls.forEach((wall) => {
       const wallGradient = ctx.createLinearGradient(wall.x, wall.y, wall.x, wall.y + wall.height)
-      const { theme } = map
-
-      if (theme.name.includes("Rừng")) {
-        wallGradient.addColorStop(0, "#2d5016")
-        wallGradient.addColorStop(1, "#1a3010")
-      } else if (theme.name.includes("Sa mạc")) {
-        wallGradient.addColorStop(0, "#d4a574")
-        wallGradient.addColorStop(1, "#8b6f47")
-      } else if (theme.name.includes("Đại dương")) {
-        wallGradient.addColorStop(0, "#1e90ff")
-        wallGradient.addColorStop(1, "#0047ab")
-      } else if (theme.name.includes("Núi lửa")) {
-        wallGradient.addColorStop(0, "#ff4500")
-        wallGradient.addColorStop(1, "#8b0000")
-      } else if (theme.name.includes("Tuyết")) {
-        wallGradient.addColorStop(0, "#e0f2f7")
-        wallGradient.addColorStop(1, "#90caf9")
-      } else if (theme.name.includes("Thành phố")) {
-        wallGradient.addColorStop(0, "#757575")
-        wallGradient.addColorStop(1, "#424242")
-      } else if (theme.name.includes("Rừng tối")) {
-        wallGradient.addColorStop(0, "#3e2723")
-        wallGradient.addColorStop(1, "#1b0000")
-      } else if (theme.name.includes("Pha lê")) {
-        wallGradient.addColorStop(0, "#e1bee7")
-        wallGradient.addColorStop(1, "#9c27b0")
-      } else if (theme.name.includes("Vũ trụ")) {
-        wallGradient.addColorStop(0, "#1a237e")
-        wallGradient.addColorStop(1, "#000051")
-      } else {
-        wallGradient.addColorStop(0, "#d4af37")
-        wallGradient.addColorStop(1, "#8b6914")
-      }
-
+      // (Giữ nguyên logic màu tường cũ hoặc simplify nếu muốn)
+      wallGradient.addColorStop(0, map.theme.wall || "#8B4513")
+      wallGradient.addColorStop(1, "#222") // Darker bottom
+      
       ctx.fillStyle = wallGradient
-      ctx.beginPath()
-      ctx.roundRect(wall.x, wall.y, wall.width, wall.height, 8)
-      ctx.fill()
-
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.roundRect(wall.x + 2, wall.y + 2, wall.width - 4, 4, 2)
-      ctx.stroke()
-
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.roundRect(wall.x, wall.y, wall.width, wall.height, 8)
-      ctx.stroke()
+      ctx.beginPath(); ctx.roundRect(wall.x, wall.y, wall.width, wall.height, 6); ctx.fill()
+      ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 2; ctx.stroke()
     })
+    ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0
 
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 0
-
-    // Draw answer tiles with pulse animation
+    // Tiles
     map.answerTiles.forEach((tile) => {
       if (tile.picked) return
-
       tile.pulseTime++
       const pulse = Math.sin(tile.pulseTime * 0.05) * 0.1 + 1
-      
       ctx.save()
       ctx.translate(tile.x + 20, tile.y + 20)
       ctx.scale(pulse, pulse)
-
-      ctx.fillStyle = "#FFEB3B"
-      ctx.beginPath()
-      ctx.roundRect(-20, -20, 40, 40, 8)
-      ctx.fill()
-
-      ctx.strokeStyle = "#F57C00"
-      ctx.lineWidth = 4
-      ctx.stroke()
-
-      ctx.fillStyle = "#000"
-      ctx.font = "bold 22px 'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif"
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
-      ctx.fillText(tile.value.toString(), 0, 0)
-
+      
+      // Vẽ bóng
+      ctx.shadowColor = "rgba(0,0,0,0.3)"; ctx.shadowBlur = 10;
+      
+      const grad = ctx.createLinearGradient(-20, -20, 20, 20)
+      grad.addColorStop(0, "#FFF9C4"); grad.addColorStop(1, "#FBC02D")
+      ctx.fillStyle = grad
+      ctx.beginPath(); ctx.roundRect(-20, -20, 40, 40, 10); ctx.fill()
+      
+      ctx.strokeStyle = "#F57C00"; ctx.lineWidth = 3; ctx.stroke()
+      ctx.fillStyle = "#333"; ctx.font = "bold 20px 'Comic Sans MS', sans-serif"
+      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tile.value.toString(), 0, 0)
       ctx.restore()
     })
 
-    // Render Particles
-    map.particles.forEach(p => {
-        ctx.save();
-        ctx.globalAlpha = p.life;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    });
-
+    // Treasures
     map.treasures.forEach((treasure) => {
       if (!treasure.collected) {
         treasure.glowTime++
-        const glow = Math.sin(treasure.glowTime * 0.08) * 0.3 + 1
         const bounce = Math.sin(treasure.glowTime * 0.1) * 3
-
         ctx.save()
-        ctx.shadowBlur = 25 * glow
-        ctx.shadowColor = "#FFD700"
-
+        ctx.shadowBlur = 20; ctx.shadowColor = "#FFD700"
+        
+        // Vẽ rương đơn giản nhưng đẹp hơn
         const cx = treasure.x + treasure.width / 2
         const cy = treasure.y + treasure.height / 2 + bounce
-
-        ctx.fillStyle = "#8B4513"
-        ctx.fillRect(treasure.x + 5, cy - 5, 30, 20)
-
-        ctx.strokeStyle = "#654321"
-        ctx.lineWidth = 1
-        for (let i = 0; i < 3; i++) {
-          ctx.beginPath()
-          ctx.moveTo(treasure.x + 8, cy - 5 + i * 7)
-          ctx.lineTo(treasure.x + 32, cy - 5 + i * 7)
-          ctx.stroke()
+        
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(treasure.x, cy - 10, 40, 30) // Body
+        ctx.fillStyle = "#FFD700"; ctx.fillRect(treasure.x + 18, cy - 10, 4, 30) // Lock strip
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(treasure.x, cy - 15, 40, 10) // Lid
+        
+        // Sparkles
+        if (Math.random() > 0.9) {
+            ctx.fillStyle = "#FFF"; ctx.beginPath()
+            ctx.arc(treasure.x + Math.random()*40, cy + Math.random()*30 - 15, 2, 0, Math.PI*2); ctx.fill()
         }
-
-        ctx.fillStyle = "#A0522D"
-        ctx.fillRect(treasure.x + 5, cy - 15, 30, 12)
-
-        ctx.strokeStyle = "#FFD700"
-        ctx.lineWidth = 3
-        ctx.strokeRect(treasure.x + 5, treasure.y + 5, 30, 27)
-
-        ctx.beginPath()
-        ctx.moveTo(cx, cy - 15)
-        ctx.lineTo(cx, cy + 12)
-        ctx.stroke()
-
-        ctx.fillStyle = "#FFD700"
-        ctx.beginPath()
-        ctx.arc(cx, cy, 5, 0, Math.PI * 2)
-        ctx.fill()
-
-        ctx.fillStyle = "#8B4513"
-        ctx.fillRect(cx - 1, cy, 2, 4)
-
-        for (let i = 0; i < 5; i++) {
-          const angle = treasure.glowTime * 0.05 + (i * Math.PI * 2) / 5
-          const sparkleX = cx + Math.cos(angle) * 25
-          const sparkleY = cy + Math.sin(angle) * 20
-          const sparkleSize = 2 + Math.sin(treasure.glowTime * 0.1 + i) * 1
-
-          ctx.fillStyle = "rgba(255, 215, 0, " + (0.5 + Math.sin(treasure.glowTime * 0.1 + i) * 0.5) + ")"
-          ctx.beginPath()
-          ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2)
-          ctx.fill()
-        }
-
         ctx.restore()
       }
     })
 
+    // Particles
+    map.particles.forEach(p => {
+        ctx.save(); ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    });
+
+    // Key
     if (map.key.visible) {
       map.key.bounceTime++
       const bounce = Math.sin(map.key.bounceTime * 0.1) * 5
-
       ctx.save()
-      ctx.shadowBlur = 20
-      ctx.shadowColor = "#FFD700"
-      ctx.font = "35px Arial"
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
+      ctx.shadowBlur = 20; ctx.shadowColor = "#FFD700"
+      ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"
       ctx.fillText("🔑", map.key.x + map.key.width / 2, map.key.y + map.key.height / 2 + bounce)
       ctx.restore()
     }
 
+    // Door
     map.door.glowTime++
-
     const doorGradient = ctx.createLinearGradient(map.door.x, map.door.y, map.door.x, map.door.y + map.door.height)
-
     if (map.door.locked) {
-      doorGradient.addColorStop(0, "#FF1493")
-      doorGradient.addColorStop(1, "#C71585")
+        doorGradient.addColorStop(0, "#FF4081"); doorGradient.addColorStop(1, "#880E4F")
     } else {
-      doorGradient.addColorStop(0, "#90EE90")
-      doorGradient.addColorStop(1, "#32CD32")
+        doorGradient.addColorStop(0, "#69F0AE"); doorGradient.addColorStop(1, "#00C853")
     }
-
     ctx.fillStyle = doorGradient
-    ctx.beginPath()
-    ctx.roundRect(map.door.x, map.door.y, map.door.width, map.door.height, 12)
-    ctx.fill()
+    ctx.beginPath(); ctx.roundRect(map.door.x, map.door.y, map.door.width, map.door.height, 8); ctx.fill()
+    ctx.strokeStyle = "#FFF"; ctx.lineWidth = 2; ctx.stroke()
+    
+    ctx.font = "40px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"
+    ctx.fillText(map.door.locked ? "🔒" : "🚪", map.door.x + map.door.width/2, map.door.y + map.door.height/2)
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
-    ctx.lineWidth = 3
-    const panelMargin = 8
-    const panelWidth = (map.door.width - panelMargin * 3) / 2
-    const panelHeight = (map.door.height - panelMargin * 3) / 2
-
-    ctx.beginPath()
-    ctx.roundRect(map.door.x + panelMargin, map.door.y + panelMargin, panelWidth, panelHeight, 6)
-    ctx.stroke()
-
-    ctx.beginPath()
-    ctx.roundRect(map.door.x + panelMargin * 2 + panelWidth, map.door.y + panelMargin, panelWidth, panelHeight, 6)
-    ctx.stroke()
-
-    ctx.beginPath()
-    ctx.roundRect(map.door.x + panelMargin, map.door.y + panelMargin * 2 + panelHeight, panelWidth, panelHeight, 6)
-    ctx.stroke()
-
-    ctx.beginPath()
-    ctx.roundRect(
-      map.door.x + panelMargin * 2 + panelWidth,
-      map.door.y + panelMargin * 2 + panelHeight,
-      panelWidth,
-      panelHeight,
-      6,
-    )
-    ctx.stroke()
-
-    if (!map.door.locked) {
-      ctx.save()
-      ctx.shadowBlur = 30
-      ctx.shadowColor = "#00FF00"
-      ctx.strokeStyle = "#00FF00"
-      ctx.lineWidth = 5
-      ctx.beginPath()
-      ctx.roundRect(map.door.x - 2, map.door.y - 2, map.door.width + 4, map.door.height + 4, 12)
-      ctx.stroke()
-      ctx.restore()
+    // Player
+    const char = CHARACTER_SHOP[playerState.currentCharacter]
+    if (char) {
+        const img = characterImages[playerState.currentCharacter]
+        if (img && img.complete) {
+            ctx.save()
+            // Shadow under player
+            ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath()
+            ctx.ellipse(map.player.x + 15, map.player.y + 30, 12, 5, 0, 0, Math.PI*2); ctx.fill()
+            
+            // Player image
+            ctx.beginPath(); ctx.arc(map.player.x + 15, map.player.y + 15, 15, 0, Math.PI*2); ctx.clip()
+            ctx.drawImage(img, map.player.x, map.player.y, 30, 30)
+            ctx.restore()
+            
+            // Border
+            ctx.strokeStyle = "#FFF"; ctx.lineWidth = 2; ctx.beginPath()
+            ctx.arc(map.player.x + 15, map.player.y + 15, 15, 0, Math.PI*2); ctx.stroke()
+        } else {
+             ctx.fillStyle = "red"; ctx.fillRect(map.player.x, map.player.y, 30, 30)
+        }
     }
 
-    ctx.strokeStyle = map.door.locked ? "#8B008B" : "#228B22"
-    ctx.lineWidth = 4
-    ctx.beginPath()
-    ctx.roundRect(map.door.x, map.door.y, map.door.width, map.door.height, 12)
-    ctx.stroke()
-
-    ctx.font = "50px Arial"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillStyle = "#FFF"
-    ctx.strokeStyle = "#000"
-    ctx.lineWidth = 3
-    const iconText = map.door.locked ? "🔒" : "🚪"
-    ctx.strokeText(iconText, map.door.x + map.door.width / 2, map.door.y + map.door.height / 2)
-    ctx.fillText(iconText, map.door.x + map.door.width / 2, map.door.y + map.door.height / 2)
-
-    if (!map.door.locked) {
-      ctx.fillStyle = "#DAA520"
-      ctx.beginPath()
-      ctx.arc(map.door.x + map.door.width * 0.75, map.door.y + map.door.height / 2, 5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = "#8B6914"
-      ctx.lineWidth = 2
-      ctx.stroke()
-    }
-
-    const drawCharacter = () => {
-      const char = CHARACTER_SHOP[playerState.currentCharacter]
-      if (!char) return
-
-      const img = characterImages[playerState.currentCharacter]
-      if (!img || !img.complete) return
-
-      ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
-      ctx.beginPath()
-      ctx.ellipse(map.player.x + map.player.width / 2, map.player.y + map.player.height + 5, 18, 8, 0, 0, Math.PI * 2)
-      ctx.fill()
-
-      ctx.save()
-      ctx.beginPath()
-      ctx.arc(
-        map.player.x + map.player.width / 2,
-        map.player.y + map.player.height / 2,
-        map.player.width / 2 - 2,
-        0,
-        Math.PI * 2,
-      )
-      ctx.clip()
-      ctx.drawImage(img, map.player.x, map.player.y, map.player.width, map.player.height)
-      ctx.restore()
-
-      const borderGlow = Math.sin(Date.now() * 0.003) * 0.5 + 0.5
-      ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 + borderGlow * 0.2})`
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.arc(
-        map.player.x + map.player.width / 2,
-        map.player.y + map.player.height / 2,
-        map.player.width / 2 - 2,
-        0,
-        Math.PI * 2,
-      )
-      ctx.stroke()
-    }
-
-    drawCharacter()
-
+    // UI Overlay (Timer, Coins, Buttons)
     const minutes = Math.floor(timeLeft / 60)
     const seconds = timeLeft % 60
     const timeString = `${minutes}:${seconds.toString().padStart(2, "0")}`
 
-    const timerColor = timeLeft > 60 ? "rgba(255, 255, 255, 0.95)" : "rgba(255, 200, 200, 0.95)"
-    ctx.fillStyle = timerColor
-    ctx.beginPath()
-    ctx.roundRect(canvas.width - 140, canvas.height - 70, 120, 55, 12)
-    ctx.fill()
+    // Timer Box
+    ctx.fillStyle = timeLeft > 60 ? "rgba(0,0,0,0.6)" : "rgba(200,0,0,0.8)"
+    ctx.beginPath(); ctx.roundRect(canvas.width - 130, canvas.height - 60, 110, 45, 10); ctx.fill()
+    ctx.fillStyle = "#FFF"; ctx.font = "bold 28px monospace"; ctx.textAlign = "center"
+    ctx.fillText(timeString, canvas.width - 75, canvas.height - 30)
 
-    ctx.strokeStyle = timeLeft > 60 ? "#333" : "#D32F2F"
-    ctx.lineWidth = 4
-    ctx.stroke()
+    // Coin Box
+    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.beginPath()
+    ctx.roundRect(canvas.width - 160, 85, 140, 40, 10); ctx.fill()
+    ctx.fillStyle = "#FFD700"; ctx.font = "bold 22px Arial"
+    ctx.fillText(`💰 ${playerState.coins}`, canvas.width - 90, 112)
 
-    ctx.fillStyle = timeLeft > 60 ? "#000" : "#D32F2F"
-    ctx.font = "bold 32px 'Courier New', monospace"
-    ctx.textAlign = "center"
-    ctx.fillText(timeString, canvas.width - 80, canvas.height - 40)
-
-    // Định nghĩa các nút
-    const btnSize = 45;
-    const btnY = 20; 
-    const spacing = 15;
-
+    // Buttons
+    const btnSize = 40; const btnY = 20; const spacing = 10;
     const buttons = [
-      { icon: isSaving ? "⏳" : "💾", x: canvas.width - 170, color: "#4CAF50" }, // Màu xanh lá cho Lưu
-      { icon: soundEnabled ? "🔊" : "🔇", x: canvas.width - 170 + btnSize + spacing, color: "#2196F3" }, // Màu xanh dương cho Loa
-      { icon: "✖", x: canvas.width - 170 + 2 * (btnSize + spacing), color: "#F44336" }, // ĐÃ ĐỔI THÀNH MÀU ĐỎ (Red)
+      { icon: isSaving ? "⏳" : "💾", x: canvas.width - 160, color: "#4CAF50" },
+      { icon: soundEnabled ? "🔊" : "🔇", x: canvas.width - 160 + btnSize + spacing, color: "#2196F3" },
+      { icon: "✖", x: canvas.width - 160 + 2 * (btnSize + spacing), color: "#F44336" },
     ];
-
-    // Vẽ các nút
     buttons.forEach((btn) => {
-      // Vẽ đổ bóng/viền cho nút
-      ctx.fillStyle = btn.color;
-      ctx.beginPath();
-      ctx.roundRect(btn.x, btn.y || btnY, btnSize, btnSize, 10);
-      ctx.fill();
-
-      // Thêm hiệu ứng bóng gương phía trên nút cho đẹp
-      ctx.fillStyle = "rgba(255,255,255,0.3)";
-      ctx.beginPath();
-      ctx.roundRect(btn.x, btn.y || btnY, btnSize, btnSize / 2, 10);
-      ctx.fill();
-
-      // Vẽ biểu tượng (Icon)
-      ctx.fillStyle = "#FFF";
-      ctx.font = "24px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(btn.icon, btn.x + btnSize / 2, (btn.y || btnY) + btnSize / 2 + 2);
+      ctx.fillStyle = btn.color; ctx.beginPath(); ctx.roundRect(btn.x, btnY, btnSize, btnSize, 8); ctx.fill()
+      ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.beginPath(); ctx.roundRect(btn.x, btnY, btnSize, btnSize/2, 8); ctx.fill()
+      ctx.fillStyle = "#FFF"; ctx.font = "20px Arial"; ctx.fillText(btn.icon, btn.x + btnSize/2, btnY + btnSize/2 + 7);
     });
-
-    ctx.fillStyle = "rgba(0, 0, 0, 0.75)"
-    ctx.beginPath()
-    ctx.roundRect(canvas.width - 160, 85, 150, 40, 10)
-    ctx.fill()
-
-    ctx.fillStyle = "#FFD700"
-    ctx.font = "bold 24px 'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif"
-    ctx.textAlign = "center"
-    ctx.fillText(`💰 ${playerState.coins}`, canvas.width - 85, 105)
   }
 
+  // --- GAME LOOP ---
   useEffect(() => {
     if (gameState !== "PLAYING") {
       keysPressed.current = {}
       return
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keysPressed.current[e.key.toLowerCase()] = true
-    }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysPressed.current[e.key.toLowerCase()] = false
-    }
-
+    const handleKeyDown = (e: KeyboardEvent) => { keysPressed.current[e.key.toLowerCase()] = true }
+    const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.key.toLowerCase()] = false }
     window.addEventListener("keydown", handleKeyDown)
     window.addEventListener("keyup", handleKeyUp)
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("keyup", handleKeyUp)
-    }
-  }, [gameState])
-
-  useEffect(() => {
-    if (gameState !== "PLAYING") {
-      const map = gameMapRef.current
-      if (map) {
-        map.player.vx = 0
-        map.player.vy = 0
-      }
-      keysPressed.current = {}
-      return
-    }
 
     const interval = setInterval(() => {
       const map = gameMapRef.current
       if (!map) return
 
-      map.player.vx = 0
-      map.player.vy = 0
-
-      if (keysPressed.current["w"] || keysPressed.current["arrowup"]) {
-        map.player.vy = -1
-      }
-      if (keysPressed.current["s"] || keysPressed.current["arrowdown"]) {
-        map.player.vy = 1
-      }
-      if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) {
-        map.player.vx = -1
-      }
-      if (keysPressed.current["d"] || keysPressed.current["arrowright"]) {
-        map.player.vx = 1
-      }
+      map.player.vx = 0; map.player.vy = 0
+      if (keysPressed.current["w"] || keysPressed.current["arrowup"]) map.player.vy = -1
+      if (keysPressed.current["s"] || keysPressed.current["arrowdown"]) map.player.vy = 1
+      if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) map.player.vx = -1
+      if (keysPressed.current["d"] || keysPressed.current["arrowright"]) map.player.vx = 1
 
       updateGameMap()
       renderGameMap()
     }, 1000 / 60)
 
-    return () => clearInterval(interval)
-  }, [gameState, score, playerState.coins, soundEnabled, playerState.currentCharacter, isSaving])
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+      clearInterval(interval)
+    }
+  }, [gameState, score, playerState, soundEnabled, isSaving])
 
+  // Timer Loop
   useEffect(() => {
     if (gameState !== "PLAYING") return
-
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          const map = gameMapRef.current
-          if (map) {
-            map.player.vx = 0
-            map.player.vy = 0
-          }
-          keysPressed.current = {}
           setGameState("LOSE")
           return 0
         }
         return prev - 1
       })
     }, 1000)
-
     return () => clearInterval(timer)
   }, [gameState])
 
@@ -1635,118 +1200,60 @@ export default function MathDuckMaze() {
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (gameState !== "PLAYING") return
-
-    const canvas = canvasRef.current
-    if (!canvas) return
-
+    const canvas = canvasRef.current; if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const x = e.clientX - rect.left; const y = e.clientY - rect.top
 
-    const buttonSize = 45
-    const buttonY = 20
-    const buttonSpacing = 12
+    const btnSize = 40; const btnY = 20; const spacing = 10;
+    const btn1X = canvas.width - 160;
+    const btn2X = btn1X + btnSize + spacing;
+    const btn3X = btn2X + btnSize + spacing;
 
-    // Save Button Clicked
-    if (x >= canvas.width - 160 && x <= canvas.width - 160 + buttonSize && y >= buttonY && y <= buttonY + buttonSize) {
-      console.log("[System] Save button clicked")
-      saveToDatabase(true);
-    }
-
-    if (
-      x >= canvas.width - 160 + buttonSize + buttonSpacing &&
-      x <= canvas.width - 160 + buttonSize + buttonSpacing + buttonSize &&
-      y >= buttonY &&
-      y <= buttonY + buttonSize
-    ) {
-      setSoundEnabled((prev) => !prev)
-    }
-
-    if (
-      x >= canvas.width - 160 + 2 * (buttonSize + buttonSpacing) &&
-      x <= canvas.width - 160 + 2 * (buttonSize + buttonSpacing) + buttonSize &&
-      y >= buttonY &&
-      y <= buttonY + buttonSize
-    ) {
-      const map = gameMapRef.current
-      if (map) {
-        map.player.vx = 0
-        map.player.vy = 0
-      }
-      keysPressed.current = {}
-      setGameState("LEVEL_SELECT")
-    }
+    if (x >= btn1X && x <= btn1X + btnSize && y >= btnY && y <= btnY + btnSize) saveToDatabase(true)
+    if (x >= btn2X && x <= btn2X + btnSize && y >= btnY && y <= btnY + btnSize) setSoundEnabled(p => !p)
+    if (x >= btn3X && x <= btn3X + btnSize && y >= btnY && y <= btnY + btnSize) setGameState("LEVEL_SELECT")
   }
 
   const handleBonusAnswer = (answer: number) => {
     const map = gameMapRef.current
     if (currentBonusQuestion && answer === currentBonusQuestion.correctAnswer) {
-      const triggeredTreasure = map?.treasures.find(
-        (t) => t.collected && t.bonusQuestion?.question === currentBonusQuestion.question,
-      )
-      const reward = triggeredTreasure?.reward || 50
-      setPlayerState((prev) => ({
-        ...prev,
-        coins: prev.coins + reward,
-      }))
-      setScore((prev) => prev + reward)
-
-      if (map) {
-        map.flashEffect = { active: true, color: "rgba(0, 255, 0, 0.3)", time: 0 }
-      }
+        // Tìm rương vừa mở để xóa logic collected
+        setPlayerState((prev) => ({ ...prev, coins: prev.coins + 50 }))
+        setScore((prev) => prev + 50)
+        if (map) map.flashEffect = { active: true, color: "rgba(0, 255, 0, 0.3)", time: 0 }
     } else {
-      if (map) {
-        map.flashEffect = { active: true, color: "rgba(255, 0, 0, 0.3)", time: 0 }
-      }
+        if (map) map.flashEffect = { active: true, color: "rgba(255, 0, 0, 0.3)", time: 0 }
     }
-
-    setShowBonusQuestion(false)
-    setCurrentBonusQuestion(null)
-    setSelectedBonusAnswer(null)
-    setGameState("PLAYING")
+    setShowBonusQuestion(false); setCurrentBonusQuestion(null); setSelectedBonusAnswer(null); setGameState("PLAYING")
   }
 
+  // --- RENDER SCREENS (Menu, Shop, etc.) ---
+  
   if (gameState === "MENU") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-400 to-yellow-300 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-blue-400 to-blue-300 border-4 border-blue-600 rounded-3xl">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+        <Card className="w-full max-w-2xl p-8 bg-white/90 backdrop-blur-sm border-4 border-indigo-600 rounded-3xl shadow-2xl">
           <div className="text-center space-y-6">
-            <h1
-              className="text-6xl font-black text-white drop-shadow-lg"
-              style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-            >
-              🎮 MÊ CUNG TOÁN HỌC
+            <h1 className="text-6xl font-black text-indigo-800 drop-shadow-md" style={{ fontFamily: "Comic Sans MS" }}>
+              🦆 VỊT LÀM TOÁN
             </h1>
-            <p className="text-2xl text-white font-bold">Phiêu Lưu & Giải Toán!</p>
+            <p className="text-2xl text-purple-600 font-bold">Thử thách trí tuệ & sự khéo léo!</p>
 
-            <div className="bg-white/90 rounded-2xl p-6 text-left space-y-3">
-              <p
-                className="font-bold text-xl"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                📖 Hướng dẫn:
-              </p>
-              <p className="text-lg">⌨️ WASD hoặc ⬆️⬇️⬅️➡️: Di chuyển 4 hướng</p>
-              <p className="text-lg">✅ Chạm đáp án đúng: Hoàn thành câu hỏi</p>
-              <p className="text-lg">❌ Chạm đáp án sai: Reset vị trí</p>
-              <p className="text-lg">🔑 Giải hết toán → Nhặt chìa khóa</p>
-              <p className="text-lg">🚪 Mở cửa → Sang màn mới</p>
-              <p className="text-lg">💎 Tìm rương báu ẩn để nhận thêm xu!</p>
+            <div className="bg-blue-50 rounded-2xl p-6 text-left space-y-2 border-2 border-blue-200">
+              <p className="font-bold text-xl text-blue-800">📖 Cách chơi:</p>
+              <ul className="list-disc list-inside text-gray-700 space-y-1">
+                <li>Di chuyển bằng phím <span className="font-bold bg-gray-200 px-2 rounded">WASD</span> hoặc <span className="font-bold bg-gray-200 px-2 rounded">Mũi tên</span></li>
+                <li>Tìm đáp án đúng cho các phép tính đang hiển thị.</li>
+                <li>Tránh đáp án sai nếu không muốn bị reset vị trí!</li>
+                <li>Mở <b>Rương</b> để kiếm thêm xu mua nhân vật.</li>
+                <li>Sau khi giải hết toán, tìm <b>Chìa Khóa</b> để mở cửa.</li>
+              </ul>
             </div>
 
-            <Button
-              onClick={() => setGameState("LEVEL_SELECT")}
-              className="text-3xl px-8 py-7 w-full font-black bg-green-500 hover:bg-green-600 text-white border-4 border-green-700 rounded-2xl"
-              style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-            >
-              ▶️ BẮT ĐẦU CHƠI
+            <Button onClick={() => setGameState("LEVEL_SELECT")} className="w-full text-2xl py-8 font-black bg-green-500 hover:bg-green-600 rounded-xl shadow-[0_4px_0_rgb(21,128,61)] active:shadow-none active:translate-y-1 transition-all">
+              ▶️ BẮT ĐẦU NGAY
             </Button>
-
-            <Button
-              onClick={() => setGameState("SHOP")}
-              className="text-2xl px-8 py-5 w-full font-bold bg-yellow-500 hover:bg-yellow-600 text-white border-4 border-yellow-700 rounded-2xl"
-              style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-            >
+            <Button onClick={() => setGameState("SHOP")} className="w-full text-xl py-6 font-bold bg-yellow-400 hover:bg-yellow-500 text-yellow-900 rounded-xl shadow-[0_4px_0_rgb(202,138,4)] active:shadow-none active:translate-y-1 transition-all">
               🛒 CỬA HÀNG NHÂN VẬT
             </Button>
           </div>
@@ -1757,114 +1264,51 @@ export default function MathDuckMaze() {
 
   if (gameState === "SHOP") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-400 to-pink-300 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-4xl p-8 bg-gradient-to-b from-purple-200 to-purple-100 border-4 border-purple-600 rounded-3xl">
-          <div className="space-y-6">
-            <div className="text-center">
-              <h1
-                className="text-5xl font-black text-purple-800"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                🛒 CỬA HÀNG NHÂN VẬT
-              </h1>
-              <p className="text-2xl font-bold text-purple-600 mt-2">Xu của bạn: 💰 {playerState.coins}</p>
+      <div className="min-h-screen bg-gradient-to-br from-yellow-300 to-orange-400 p-4 flex items-center justify-center">
+        <Card className="w-full max-w-4xl p-6 bg-white border-4 border-yellow-600 rounded-3xl shadow-2xl h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+                <h1 className="text-4xl font-black text-yellow-800">🛒 CỬA HÀNG</h1>
+                <div className="bg-yellow-100 px-4 py-2 rounded-full border-2 border-yellow-400 font-bold text-yellow-800 text-xl">
+                    💰 {playerState.coins} xu
+                </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto p-2 flex-1">
               {Object.entries(CHARACTER_SHOP).map(([key, char]) => {
                 const isUnlocked = playerState.unlockedCharacters.includes(key as Character)
                 const isCurrent = playerState.currentCharacter === key
                 const canBuy = playerState.coins >= char.price
 
                 return (
-                  <Card
-                    key={key}
-                    className={`p-4 text-center border-4 rounded-2xl ${
-                      isCurrent
-                        ? "border-green-500 bg-green-100"
-                        : isUnlocked
-                          ? "border-blue-500 bg-blue-50"
-                          : canBuy
-                            ? "border-yellow-500 bg-yellow-50"
-                            : "border-gray-300 bg-gray-100"
-                    }`}
+                  <div key={key} 
+                    className={`relative p-4 rounded-xl border-4 transition-all flex flex-col items-center
+                    ${isCurrent ? "border-green-500 bg-green-50 shadow-lg scale-95" : "border-gray-200 bg-gray-50 hover:border-blue-400"}`}
                   >
-                    {/* Replaced Text Emoji with Image Tag */}
-                    <div className="flex justify-center mb-2">
-                        <img 
-                            src={char.avatar} 
-                            alt={char.name} 
-                            className="w-24 h-24 object-cover rounded-full border-4 border-white shadow-md"
-                            onError={(e) => {
-                                (e.target as HTMLImageElement).src = "https://placehold.co/100?text=" + char.name
-                            }}
-                        />
-                    </div>
-                    <h3
-                      className="text-xl font-bold mb-2"
-                      style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-                    >
-                      {char.name}
-                    </h3>
-
+                    <img src={char.avatar} alt={char.name} className="w-24 h-24 rounded-full border-4 border-white shadow-sm object-cover mb-3" />
+                    <h3 className="font-bold text-lg mb-1">{char.name}</h3>
+                    
                     {isUnlocked ? (
-                      isCurrent ? (
-                        <p className="text-green-600 font-bold text-lg">✓ Đang sử dụng</p>
-                      ) : (
-                        <Button
-                          onClick={() => {
-                            setPlayerState((prev) => ({
-                              ...prev,
-                              currentCharacter: key as Character,
-                            }))
-                            // Save on Character Select
+                        isCurrent ? 
+                        <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full text-sm">✓ Đang dùng</span> :
+                        <Button onClick={() => {
+                            setPlayerState(p => ({ ...p, currentCharacter: key as Character }));
                             setTimeout(() => saveToDatabase(), 500);
-                          }}
-                          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg rounded-xl"
-                        >
-                          Chọn
-                        </Button>
-                      )
+                        }} className="bg-blue-500 hover:bg-blue-600 w-full h-10">Chọn</Button>
                     ) : (
-                      <>
-                        <p className="text-lg font-bold mb-2">💰 {char.price} xu</p>
-                        <Button
-                          onClick={() => {
+                        <Button onClick={() => {
                             if (canBuy) {
-                              setPlayerState((prev) => ({
-                                ...prev,
-                                coins: prev.coins - char.price,
-                                unlockedCharacters: [...prev.unlockedCharacters, key as Character],
-                                currentCharacter: key as Character,
-                              }))
-                              // Save on Purchase
-                              setTimeout(() => saveToDatabase(), 500);
+                                setPlayerState(p => ({ ...p, coins: p.coins - char.price, unlockedCharacters: [...p.unlockedCharacters, key as Character], currentCharacter: key as Character }));
+                                setTimeout(() => saveToDatabase(), 500);
                             }
-                          }}
-                          disabled={!canBuy}
-                          className={`w-full font-bold rounded-xl ${
-                            canBuy
-                              ? "bg-green-500 hover:bg-green-600 text-white"
-                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          }`}
-                        >
-                          {canBuy ? "Mua" : "Không đủ xu"}
+                        }} disabled={!canBuy} className={canBuy ? "bg-green-600 hover:bg-green-700 w-full" : "bg-gray-400 w-full"}>
+                            💰 {char.price}
                         </Button>
-                      </>
                     )}
-                  </Card>
+                  </div>
                 )
               })}
             </div>
-
-            <Button
-              onClick={() => setGameState("MENU")}
-              className="text-2xl px-8 py-4 w-full font-bold bg-purple-500 hover:bg-purple-600 text-white border-4 border-purple-700 rounded-2xl"
-              style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-            >
-              ← Quay lại
-            </Button>
-          </div>
+            <Button onClick={() => setGameState("MENU")} className="mt-4 bg-gray-500 hover:bg-gray-600 w-full text-xl py-6">← Quay lại Menu</Button>
         </Card>
       </div>
     )
@@ -1873,348 +1317,87 @@ export default function MathDuckMaze() {
   if (gameState === "LEVEL_SELECT") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-400 to-cyan-300 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-5xl p-8 bg-gradient-to-b from-white to-blue-50 border-4 border-blue-600 rounded-3xl">
-          <div className="space-y-6">
-            <div className="text-center">
-              <h1
-                className="text-5xl font-black text-blue-800"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                🗺️ CHỌN MÀN CHƠI
-              </h1>
-              <div className="flex items-center justify-center gap-2 mt-2">
-                 <p className="text-xl font-bold text-blue-600">Nhân vật:</p>
-                 <img 
-                    src={CHARACTER_SHOP[playerState.currentCharacter].avatar} 
-                    alt="Current" 
-                    className="w-8 h-8 rounded-full border border-blue-600"
-                 />
-                 <p className="text-xl font-bold text-blue-600">{CHARACTER_SHOP[playerState.currentCharacter].name}</p>
-              </div>
-              <p className="text-lg font-bold text-yellow-600">💰 Xu: {playerState.coins}</p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {LEVELS.map((level, idx) => {
-                const levelNum = level.id
-                const isCompleted = playerState.completedLevels.includes(levelNum)
-
+        <Card className="w-full max-w-5xl p-8 bg-white/90 border-4 border-blue-600 rounded-3xl shadow-xl">
+            <h1 className="text-5xl font-black text-center text-blue-800 mb-6">CHỌN MÀN CHƠI</h1>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+              {LEVELS.map((level) => {
+                const isCompleted = playerState.completedLevels.includes(level.id)
                 return (
-                  <Button
-                    key={levelNum}
-                    onClick={() => startGame(levelNum)}
-                    className={`h-24 text-xl font-black border-4 rounded-2xl ${
-                      isCompleted
-                        ? "bg-green-500 hover:bg-green-600 text-white border-green-700"
-                        : "bg-blue-500 hover:bg-blue-600 text-white border-blue-700"
+                  <Button key={level.id} onClick={() => startGame(level.id)}
+                    className={`h-24 text-2xl font-black border-b-4 rounded-xl transition-all active:border-b-0 active:translate-y-1 ${
+                      isCompleted ? "bg-green-500 border-green-700 hover:bg-green-600" : "bg-blue-500 border-blue-700 hover:bg-blue-600"
                     }`}
                   >
-                    <div className="flex flex-col items-center">
-                      <span className="text-3xl">{levelNum}</span>
-                      {isCompleted && <span className="text-sm">✓</span>}
-                    </div>
+                    {level.id} {isCompleted && "⭐"}
                   </Button>
                 )
               })}
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <Button
-                onClick={() => setGameState("MENU")}
-                className="text-2xl px-6 py-4 font-bold bg-gray-500 hover:bg-gray-600 text-white border-4 border-gray-700 rounded-2xl"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                ← Menu
-              </Button>
-
-              <Button
-                onClick={() => setGameState("SHOP")}
-                className="text-2xl px-6 py-4 font-bold bg-yellow-500 hover:bg-yellow-600 text-white border-4 border-yellow-700 rounded-2xl"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                🛒 Cửa hàng
-              </Button>
-            </div>
-          </div>
+            <Button onClick={() => setGameState("MENU")} className="w-full bg-gray-500 hover:bg-gray-600 text-xl py-6 rounded-xl border-b-4 border-gray-700">← Về Menu</Button>
         </Card>
       </div>
     )
   }
 
-  if (gameState === "WIN") {
-    const earnedCoins = Math.floor(score * 0.5) + 100
-    const nextLevel = currentLevel + 1
-    const hasNextLevel = nextLevel <= LEVELS.length
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-400 to-emerald-300 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-green-100 to-green-50 border-4 border-green-600 rounded-3xl">
-          <div className="text-center space-y-6">
-            <h1
-              className="text-6xl font-black text-green-800"
-              style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-            >
-              🎉 CHIẾN THẮNG!
+  // Helper cho màn hình thắng/thua
+  const EndScreen = ({ type }: { type: "WIN" | "LOSE" }) => (
+    <div className={`min-h-screen p-4 flex items-center justify-center bg-gradient-to-br ${type === "WIN" ? "from-green-400 to-emerald-600" : "from-red-500 to-orange-600"}`}>
+        <Card className="w-full max-w-lg p-8 bg-white border-4 rounded-3xl shadow-2xl text-center space-y-6">
+            <h1 className={`text-6xl font-black ${type === "WIN" ? "text-green-600" : "text-red-600"}`}>
+                {type === "WIN" ? "CHIẾN THẮNG!" : "HẾT GIỜ!"}
             </h1>
-            <p className="text-3xl font-bold text-green-700">Màn {currentLevel} hoàn thành!</p>
-
-            <div className="bg-white rounded-2xl p-6 space-y-3">
-              <p className="text-2xl font-bold">Điểm số: {score}</p>
-              <p className="text-2xl font-bold text-yellow-600">Nhận được: 💰 {earnedCoins} xu</p>
-              <p className="text-xl">Tổng xu: 💰 {playerState.coins}</p>
+            <p className="text-2xl font-bold text-gray-700">Điểm: {score}</p>
+            {type === "WIN" && <p className="text-xl text-yellow-600 font-bold">+ 💰 {Math.floor(score * 0.5) + 100} xu</p>}
+            
+            <div className="flex flex-col gap-3">
+                {type === "WIN" && currentLevel < LEVELS.length && (
+                    <Button onClick={() => startGame(currentLevel + 1)} className="bg-blue-500 hover:bg-blue-600 text-xl py-6 border-b-4 border-blue-700">▶️ Màn kế tiếp</Button>
+                )}
+                <Button onClick={() => startGame(currentLevel)} className="bg-orange-500 hover:bg-orange-600 text-xl py-6 border-b-4 border-orange-700">🔄 Chơi lại</Button>
+                <Button onClick={() => setGameState("LEVEL_SELECT")} className="bg-gray-500 hover:bg-gray-600 text-xl py-6 border-b-4 border-gray-700">📋 Chọn màn</Button>
             </div>
-
-            <div className="space-y-4">
-              {hasNextLevel && (
-                <Button
-                  onClick={() => startGame(nextLevel)}
-                  className="text-3xl px-8 py-6 w-full font-black bg-blue-500 hover:bg-blue-600 text-white border-4 border-blue-700 rounded-2xl"
-                  style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-                >
-                  ▶️ Màn tiếp theo
-                </Button>
-              )}
-
-              <Button
-                onClick={() => setGameState("LEVEL_SELECT")}
-                className="text-2xl px-8 py-4 w-full font-bold bg-green-500 hover:bg-green-600 text-white border-4 border-green-700 rounded-2xl"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                📋 Chọn màn khác
-              </Button>
-
-              <Button
-                onClick={() => setGameState("SHOP")}
-                className="text-2xl px-8 py-4 w-full font-bold bg-yellow-500 hover:bg-yellow-600 text-white border-4 border-yellow-700 rounded-2xl"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                🛒 Mua nhân vật mới
-              </Button>
-            </div>
-          </div>
         </Card>
-      </div>
-    )
-  }
+    </div>
+  )
 
-  if (gameState === "LOSE") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-400 to-orange-300 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-2xl p-8 bg-gradient-to-b from-red-100 to-red-50 border-4 border-red-600 rounded-3xl">
-          <div className="text-center space-y-6">
-            <h1
-              className="text-6xl font-black text-red-800"
-              style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-            >
-              ⏰ HẾT GIỜ!
-            </h1>
-            <p className="text-3xl font-bold text-red-700">Màn {currentLevel}</p>
-
-            <div className="bg-white rounded-2xl p-6">
-              <p className="text-2xl font-bold">Điểm số: {score}</p>
-              <p className="text-xl mt-2">Thử lại lần nữa nhé!</p>
-            </div>
-
-            <div className="space-y-4">
-              <Button
-                onClick={() => startGame(currentLevel)}
-                className="text-3xl px-8 py-6 w-full font-black bg-orange-500 hover:bg-orange-600 text-white border-4 border-orange-700 rounded-2xl"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                🔄 Chơi lại
-              </Button>
-
-              <Button
-                onClick={() => setGameState("LEVEL_SELECT")}
-                className="text-2xl px-8 py-4 w-full font-bold bg-red-500 hover:bg-red-600 text-white border-4 border-red-700 rounded-2xl"
-                style={{ fontFamily: "'Comic Sans MS', 'Arial Rounded MT Bold', sans-serif" }}
-              >
-                📋 Chọn màn khác
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
-    )
-  }
-
-  if (showShop) {
-    return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-        <div className="bg-gradient-to-br from-purple-100 to-pink-100 p-8 rounded-3xl shadow-2xl max-w-2xl w-full mx-4 border-4 border-purple-400">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-4xl font-bold text-purple-800" style={{ fontFamily: "'Comic Sans MS', cursive" }}>
-              🏪 CỬA HÀNG NHÂN VẬT
-            </h2>
-            <button
-              onClick={() => setShowShop(false)}
-              className="text-4xl hover:scale-110 transition-transform text-purple-600"
-            >
-              ✖
-            </button>
-          </div>
-
-          <div className="mb-6 text-center bg-yellow-200 py-3 px-6 rounded-2xl border-3 border-yellow-400">
-            <p className="text-2xl font-bold text-yellow-800" style={{ fontFamily: "'Comic Sans MS', cursive" }}>
-              💰 Xu của bạn: {playerState.coins}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-h-96 overflow-y-auto">
-            {(Object.entries(CHARACTER_SHOP) as [Character, (typeof CHARACTER_SHOP)[Character]][]).map(
-              ([charId, char]) => {
-                const isUnlocked = playerState.unlockedCharacters.includes(charId)
-                const isCurrent = playerState.currentCharacter === charId
-                const canAfford = playerState.coins >= char.price
-
-                return (
-                  <div
-                    key={charId}
-                    className={`p-4 rounded-2xl border-4 transition-all ${
-                      isCurrent
-                        ? "bg-gradient-to-br from-green-200 to-green-300 border-green-500 shadow-lg scale-105"
-                        : isUnlocked
-                          ? "bg-white border-blue-400 hover:scale-105 cursor-pointer"
-                          : canAfford
-                            ? "bg-gray-100 border-gray-400 hover:scale-105 cursor-pointer"
-                            : "bg-gray-200 border-gray-300 opacity-60"
-                    }`}
-                    onClick={() => {
-                      if (isCurrent) return
-                      if (isUnlocked) {
-                        setPlayerState((prev) => ({ ...prev, currentCharacter: charId }))
-                      } else if (canAfford) {
-                        setPlayerState((prev) => ({
-                          ...prev,
-                          coins: prev.coins - char.price,
-                          unlockedCharacters: [...prev.unlockedCharacters, charId],
-                          currentCharacter: charId,
-                        }))
-                      }
-                      // Auto save on any shop interaction
-                      setTimeout(() => saveToDatabase(), 500);
-                    }}
-                  >
-                    <div className="relative w-full aspect-square mb-2 rounded-xl overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100">
-                      <img
-                        src={char.avatar || "/placeholder.svg"}
-                        alt={char.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-
-                    <p
-                      className="text-xl font-bold text-center mb-1"
-                      style={{ fontFamily: "'Comic Sans MS', cursive" }}
-                    >
-                      {char.name}
-                    </p>
-
-                    {isCurrent ? (
-                      <p className="text-center text-green-700 font-bold text-lg">✓ ĐANG DÙNG</p>
-                    ) : isUnlocked ? (
-                      <p className="text-center text-blue-700 font-bold text-lg">ĐÃ MỞ KHÓA</p>
-                    ) : (
-                      <p className={`text-center font-bold text-lg ${canAfford ? "text-orange-600" : "text-gray-500"}`}>
-                        💰 {char.price} xu
-                      </p>
-                    )}
-                  </div>
-                )
-              },
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (gameState === "WIN") return <EndScreen type="WIN" />
+  if (gameState === "LOSE") return <EndScreen type="LOSE" />
 
   if (showBonusQuestion && currentBonusQuestion) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
-        <div className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4 border-4 border-yellow-400 animate-in zoom-in-95">
-          <div className="text-center mb-6">
-            <div className="text-7xl mb-4 animate-bounce">🎁</div>
-            <h2 className="text-4xl font-bold text-purple-600 mb-2" style={{ fontFamily: "Comic Sans MS, cursive" }}>
-              Rương Báu!
-            </h2>
-            <p className="text-gray-700 text-xl font-semibold">Trả lời đúng nhận 💎</p>
-          </div>
-
-          <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl p-6 mb-6">
-            <p
-              className="text-4xl font-bold text-center text-gray-800"
-              style={{ fontFamily: "Comic Sans MS, cursive" }}
-            >
-              {currentBonusQuestion.question}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {currentBonusQuestion.options.map((option, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedBonusAnswer(option)}
-                className={`p-4 rounded-xl text-2xl font-bold transition-all ${
-                  selectedBonusAnswer === option
-                    ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-white scale-105 shadow-lg"
-                    : "bg-white hover:bg-yellow-50 text-gray-800 hover:scale-105"
-                } border-4 border-yellow-300`}
-                style={{ fontFamily: "Comic Sans MS, cursive" }}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => selectedBonusAnswer !== null && handleBonusAnswer(selectedBonusAnswer)}
-            disabled={selectedBonusAnswer === null}
-            className={`w-full py-4 rounded-xl text-xl font-bold transition-all ${
-              selectedBonusAnswer !== null
-                ? "bg-gradient-to-r from-green-400 to-blue-500 text-white hover:scale-105 shadow-lg"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
-            style={{ fontFamily: "Comic Sans MS, cursive" }}
-          >
-            Xác Nhận
-          </button>
-        </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <Card className="w-full max-w-md p-6 bg-gradient-to-b from-purple-100 to-white border-4 border-purple-500 rounded-3xl shadow-2xl animate-in zoom-in-95">
+            <h2 className="text-3xl font-bold text-center text-purple-800 mb-4">🎁 CÂU HỎI THƯỞNG</h2>
+            <div className="bg-purple-600 text-white text-4xl font-bold text-center py-8 rounded-2xl mb-6 shadow-inner">
+                {currentBonusQuestion.question}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+                {currentBonusQuestion.options.map((opt, idx) => (
+                    <Button key={idx} onClick={() => handleBonusAnswer(opt)} className="text-2xl h-16 bg-white text-purple-900 border-2 border-purple-200 hover:bg-purple-100 hover:scale-105 transition-all">
+                        {opt}
+                    </Button>
+                ))}
+            </div>
+        </Card>
       </div>
     )
   }
 
+  // MAIN GAME RENDER
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-orange-400 to-red-500">
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 flex gap-3 flex-wrap justify-center max-w-4xl">
-        {gameMapRef.current?.mathProblems
-          .filter((p) => !p.solved)
-          .map((problem) => (
-            <div key={problem.id} className="bg-white rounded-2xl shadow-2xl px-6 py-4 border-4 border-orange-400">
-              <p
-                className="text-3xl font-bold text-gray-800 text-center"
-                style={{ fontFamily: "Comic Sans MS, cursive" }}
-              >
-                {problem.a} × {problem.b} = ?
-              </p>
-              <p className="text-sm text-gray-600 text-center mt-1" style={{ fontFamily: "Comic Sans MS, cursive" }}>
-                Bảng {problem.table}
-              </p>
+    <div className="relative w-full h-screen overflow-hidden bg-gray-900 flex items-center justify-center">
+      {/* Math Problems Display */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-3 z-10">
+        {gameMapRef.current?.mathProblems.filter((p) => !p.solved).map((problem) => (
+            <div key={problem.id} className="bg-white/90 backdrop-blur px-4 py-2 rounded-xl border-2 border-orange-400 shadow-lg animate-in slide-in-from-top-5">
+              <p className="text-2xl font-black text-gray-800">{problem.a} × {problem.b} = ?</p>
             </div>
-          ))}
+        ))}
       </div>
 
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-        <div className="relative">
-          <canvas
-            ref={canvasRef}
-            width={1000}
-            height={600}
-            className="border-8 border-gray-700 rounded-3xl shadow-2xl"
-            onClick={handleCanvasClick}
-          />
-        </div>
-      </div>
+      <canvas ref={canvasRef} width={1000} height={600} onClick={handleCanvasClick}
+        className="bg-black border-4 border-gray-600 rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.5)] cursor-pointer max-w-full max-h-full"
+      />
     </div>
   )
 }
