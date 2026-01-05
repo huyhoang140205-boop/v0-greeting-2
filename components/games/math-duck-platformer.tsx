@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { createClient } from "@supabase/supabase-js"
 
 // --- SUPABASE CONFIGURATION ---
-// Bạn cần tạo file .env.local và điền thông tin này
+// Bạn cần tạo file .env.local và điền thông tin này hoặc thay trực tiếp vào đây
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL"
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY"
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
@@ -154,9 +154,9 @@ export default function MathDuckMaze() {
 
   const [characterImages, setCharacterImages] = React.useState<Record<string, HTMLImageElement>>({})
 
-  // --- DATABASE INTEGRATION HOOKS ---
+  // --- DATABASE INTEGRATION HOOKS (FIXED) ---
 
-  // 1. Get User and Game ID
+  // 1. Get User and Game ID (Auto Create Game/Profile if missing)
   useEffect(() => {
     const initSession = async () => {
       // Get User
@@ -164,10 +164,23 @@ export default function MathDuckMaze() {
       if (user) {
         setUserId(user.id)
         console.log("Logged in as:", user.email)
+
+        // FIX: Đảm bảo user tồn tại trong bảng public.profiles
+        // Nếu bạn chưa set trigger trong DB, bước này rất quan trọng
+        const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+        if (!profile) {
+            console.log("Profile not found, creating placeholder profile...");
+            await supabase.from('profiles').insert({
+                id: user.id,
+                email: user.email,
+                username: user.email?.split('@')[0],
+                role: 'student' // default role
+            });
+        }
       }
 
-      // Get Game ID by Slug
-      const { data: gameData, error } = await supabase
+      // FIX: Tìm Game ID, nếu chưa có thì TỰ TẠO
+      let { data: gameData, error } = await supabase
         .from('game')
         .select('id')
         .eq('slug', GAME_SLUG)
@@ -175,8 +188,26 @@ export default function MathDuckMaze() {
       
       if (gameData) {
         setGameId(gameData.id)
-      } else if (error) {
-        console.error("Could not find game ID:", error)
+      } else {
+        console.log("Game not found, creating new game entry...");
+        // Tự động tạo game mới nếu chưa có
+        const { data: newGame, error: createError } = await supabase
+            .from('game')
+            .insert({
+                slug: GAME_SLUG,
+                title: "Math Duck Maze",
+                description: "Math learning game",
+                is_active: true
+            })
+            .select('id')
+            .single();
+        
+        if (newGame) {
+            setGameId(newGame.id);
+            console.log("Created new Game ID:", newGame.id);
+        } else {
+            console.error("Could not create Game ID:", createError);
+        }
       }
     }
     initSession()
@@ -187,9 +218,7 @@ export default function MathDuckMaze() {
     const loadFromDb = async () => {
       if (!userId || !gameId) return
 
-      // We fetch the most recent 'game_plays' to restore state from metadata
-      // Since game_scores doesn't have a JSONB column for custom state in your schema, 
-      // we use game_plays as a save snapshot history.
+      // Lấy bản ghi chơi game gần nhất để phục hồi coin và nhân vật
       const { data, error } = await supabase
         .from('game_plays')
         .select('metadata')
@@ -208,18 +237,24 @@ export default function MathDuckMaze() {
           currentCharacter: dbState.currentCharacter ?? "doremon",
           completedLevels: dbState.completedLevels ?? []
         })
-        console.log("Loaded save from DB")
+        console.log("Loaded save from DB successfully")
+      } else {
+          console.log("No save data found for this user, starting fresh.");
       }
     }
 
     loadFromDb()
   }, [userId, gameId])
 
-  // 3. Save Function
+  // 3. Save Function (FIXED)
   const saveToDatabase = async (manualSave = false) => {
-    if (!userId || !gameId) {
-      if (manualSave) alert("Vui lòng đăng nhập để lưu vào Cloud!")
-      return
+    if (!userId) {
+        if (manualSave) alert("Vui lòng đăng nhập để lưu vào Cloud!");
+        return;
+    }
+    if (!gameId) {
+        console.error("Cannot save: Game ID missing (Check 'game' table)");
+        return;
     }
 
     setIsSaving(true)
@@ -237,10 +272,12 @@ export default function MathDuckMaze() {
         .from('game_plays')
         .insert(playPayload)
 
-      if (playError) throw playError
+      if (playError) {
+          console.error("Error inserting into game_plays:", playError);
+          throw playError;
+      }
 
       // 2. Update Aggregated Score in game_scores
-      // Check if score exists first
       const { data: existingScore } = await supabase
         .from('game_scores')
         .select('id, best_score, plays_count')
@@ -249,7 +286,7 @@ export default function MathDuckMaze() {
         .single()
 
       if (existingScore) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('game_scores')
           .update({
             best_score: Math.max(existingScore.best_score || 0, score),
@@ -259,8 +296,11 @@ export default function MathDuckMaze() {
             updated_at: new Date().toISOString()
           })
           .eq('id', existingScore.id)
+        
+        if (updateError) console.error("Error updating game_scores:", updateError);
+
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('game_scores')
           .insert({
             user_id: userId,
@@ -270,13 +310,15 @@ export default function MathDuckMaze() {
             last_score: score,
             last_played: new Date().toISOString()
           })
+        
+        if (insertError) console.error("Error inserting game_scores:", insertError);
       }
 
       if (manualSave) alert("Đã lưu thành công!")
-      console.log("Game saved to DB")
+      console.log("Game saved to DB successfully")
     } catch (err) {
-      console.error("Save failed:", err)
-      if (manualSave) alert("Lỗi khi lưu dữ liệu!")
+      console.error("Save failed (FATAL):", err)
+      if (manualSave) alert("Lỗi khi lưu dữ liệu! Kiểm tra Console.")
     } finally {
       setIsSaving(false)
     }
@@ -1017,7 +1059,7 @@ export default function MathDuckMaze() {
             
             // Effect when key appears
             map.particles.push(...createExplosion(map.key.x + 15, map.key.y + 15, "#FFD700", 20));
-}
+        }
         } else {
           // Wrong answer - reset position only
           map.flashEffect = { active: true, color: "rgba(255, 0, 0, 0.3)", time: 0 }
@@ -1236,6 +1278,7 @@ export default function MathDuckMaze() {
         ctx.fill();
         ctx.restore();
     });
+
     map.treasures.forEach((treasure) => {
       if (!treasure.collected) {
         treasure.glowTime++
@@ -1464,6 +1507,7 @@ export default function MathDuckMaze() {
       { icon: soundEnabled ? "🔊" : "🔇", x: canvas.width - 170 + btnSize + spacing, color: "#2196F3" }, // Màu xanh dương cho Loa
       { icon: "✖", x: canvas.width - 170 + 2 * (btnSize + spacing), color: "#F44336" }, // ĐÃ ĐỔI THÀNH MÀU ĐỎ (Red)
     ];
+
     // Vẽ các nút
     buttons.forEach((btn) => {
       // Vẽ đổ bóng/viền cho nút
@@ -1485,6 +1529,7 @@ export default function MathDuckMaze() {
       ctx.textBaseline = "middle";
       ctx.fillText(btn.icon, btn.x + btnSize / 2, (btn.y || btnY) + btnSize / 2 + 2);
     });
+
     ctx.fillStyle = "rgba(0, 0, 0, 0.75)"
     ctx.beginPath()
     ctx.roundRect(canvas.width - 160, 85, 150, 40, 10)
@@ -1839,12 +1884,12 @@ export default function MathDuckMaze() {
               </h1>
               <div className="flex items-center justify-center gap-2 mt-2">
                  <p className="text-xl font-bold text-blue-600">Nhân vật:</p>
-                  <img 
+                 <img 
                     src={CHARACTER_SHOP[playerState.currentCharacter].avatar} 
                     alt="Current" 
                     className="w-8 h-8 rounded-full border border-blue-600"
                  />
-                  <p className="text-xl font-bold text-blue-600">{CHARACTER_SHOP[playerState.currentCharacter].name}</p>
+                 <p className="text-xl font-bold text-blue-600">{CHARACTER_SHOP[playerState.currentCharacter].name}</p>
               </div>
               <p className="text-lg font-bold text-yellow-600">💰 Xu: {playerState.coins}</p>
             </div>
@@ -2100,7 +2145,7 @@ export default function MathDuckMaze() {
             <p
               className="text-4xl font-bold text-center text-gray-800"
               style={{ fontFamily: "Comic Sans MS, cursive" }}
-              >
+            >
               {currentBonusQuestion.question}
             </p>
           </div>
